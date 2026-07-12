@@ -33,6 +33,9 @@ pub fn run() {
             bottle::set_windows_version,
             bottle::run_program,
             bottle::run_winetricks,
+            bottle::list_programs,
+            bottle::uninstall_program,
+            bottle::open_uninstaller,
             bottle::add_shortcut,
             bottle::update_shortcut,
             bottle::remove_shortcut

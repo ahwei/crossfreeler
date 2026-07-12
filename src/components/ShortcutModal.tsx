@@ -3,6 +3,7 @@ import { Modal } from './Modal'
 import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
 import type { Shortcut } from '../lib/types'
+import { useT } from '../i18n'
 
 interface Props {
   bottleId: string
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ShortcutModal({ bottleId, initial, onClose }: Props) {
+  const t = useT()
   const defaultName = initial.name ?? initial.exePath.split('/').pop()?.replace(/\.(exe|msi|bat)$/i, '') ?? ''
   const [name, setName] = useState(defaultName)
   const [args, setArgs] = useState(initial.args ?? '')
@@ -33,10 +35,10 @@ export function ShortcutModal({ bottleId, initial, onClose }: Props) {
   }
 
   return (
-    <Modal title={initial.id ? '編輯捷徑' : '新增捷徑'} onClose={onClose}>
+    <Modal title={initial.id ? t.editShortcut : t.newShortcut} onClose={onClose}>
       <div className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm text-zinc-400">名稱</label>
+          <label className="mb-1 block text-sm text-zinc-400">{t.name}</label>
           <input
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
             value={name}
@@ -45,11 +47,11 @@ export function ShortcutModal({ bottleId, initial, onClose }: Props) {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-400">程式路徑</label>
+          <label className="mb-1 block text-sm text-zinc-400">{t.programPath}</label>
           <p className="break-all rounded-lg bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-500">{initial.exePath}</p>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-zinc-400">啟動參數（選填）</label>
+          <label className="mb-1 block text-sm text-zinc-400">{t.launchArgs}</label>
           <input
             className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100"
             value={args}
@@ -62,7 +64,7 @@ export function ShortcutModal({ bottleId, initial, onClose }: Props) {
           disabled={!name.trim()}
           onClick={() => void submit()}
         >
-          儲存
+          {t.save}
         </button>
       </div>
     </Modal>

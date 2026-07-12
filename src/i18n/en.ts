@@ -1,0 +1,125 @@
+import type { Dict } from './zh'
+
+export const en: Dict = {
+  appName: 'CrossFreeler',
+  detecting: 'Detecting environment…',
+  selectOrCreate: 'Select or create a bottle from the sidebar',
+
+  // Sidebar
+  bottles: 'Bottles',
+  noBottles: 'No bottles yet. Create one below.',
+  createBottleBtn: '＋ New Bottle',
+  wineNotDetected: 'Wine not detected',
+
+  // SetupGuide
+  welcome: 'Welcome to CrossFreeler 🍷',
+  setupIntro: 'Before running Windows software, complete the following setup:',
+  winetricksOptional: 'winetricks (optional)',
+  installRosettaStep: '1. Install Rosetta 2 (run in Terminal):',
+  installWineStep: '2. Install Wine (run in Terminal):',
+  orManualPath: 'Or point to an existing wine binary:',
+  save: 'Save',
+  redetect: 'Re-detect',
+  detectingBtn: 'Detecting…',
+  copied: 'Copied ✓',
+  copy: 'Copy',
+
+  // CreateBottleModal
+  createTitle: 'New Bottle',
+  name: 'Name',
+  namePlaceholder: 'e.g. Stardew Valley',
+  template: 'Template',
+  templateGame: '🎮 Game',
+  templateApp: '🧰 Application',
+  gameStagingDesc: 'staging + esync',
+  gameNoStagingDesc: 'esync (no staging build, falls back to stable)',
+  stableDesc: 'stable',
+  antiCheatWarning: 'Note: online games using kernel anti-cheat (EAC / BattlEye) cannot run under Wine.',
+  windowsVersion: 'Windows version',
+  win10Recommended: 'Windows 10 (recommended)',
+  initializing: 'Initializing, takes 30s–1min…',
+  create: 'Create',
+  creatingBtn: 'Creating…',
+
+  // BottleDetail
+  tabApps: 'Programs',
+  tabInstalled: 'Installed',
+  tabTricks: 'Components',
+  tabSettings: 'Settings',
+  openDriveC: 'Open C: drive',
+  clickToRename: 'Click to rename',
+
+  // ShortcutGrid
+  runProgram: '▶ Run program…',
+  addShortcut: '＋ Add shortcut',
+  noShortcuts: 'No shortcuts yet. Run an installer, then add the installed .exe as a shortcut.',
+  edit: 'Edit',
+  del: 'Delete',
+  pickProgram: 'Choose a Windows program',
+  windowsPrograms: 'Windows programs',
+  saveAsShortcut: 'Save this program as a shortcut?',
+  confirmDeleteShortcut: (name: string) => `Delete shortcut "${name}"?`,
+  editShortcut: 'Edit shortcut',
+  newShortcut: 'New shortcut',
+  programPath: 'Program path',
+  launchArgs: 'Launch arguments (optional)',
+
+  // InstalledPanel
+  installedIntro: 'Programs listed from this bottle\'s Windows uninstall registry.',
+  refresh: 'Refresh',
+  openUninstallerGui: 'Open uninstaller (GUI)',
+  uninstall: 'Uninstall',
+  confirmUninstall: (name: string) => `Uninstall "${name}"?`,
+  noPrograms: 'No installed programs found. Run an installer first.',
+  loading: 'Loading…',
+  uninstallStarted: 'Uninstaller started (a wizard window may appear). See the log panel.',
+
+  // WinetricksPanel
+  winetricksMissing: 'winetricks is not installed. Run in Terminal:',
+  winetricksAfterInstall: 'Then go back and hit "Re-detect".',
+  installSelected: (n: number) => `Install selected (${n})`,
+  installingHint: 'Installing… (may take minutes, see log panel)',
+  customVerbPlaceholder: 'Custom verbs, e.g. dxvk faudio (space-separated)',
+  run: 'Run',
+  installDone: (verbs: string) => `Installed: ${verbs}`,
+  atLeastOneVerb: 'Select at least one component',
+  verbDesc: {
+    corefonts: 'Common western fonts',
+    cjkfonts: 'CJK fonts (fixes garbled Chinese text)',
+    vcrun2015: 'Visual C++ 2015',
+    vcrun2019: 'Visual C++ 2019',
+    vcrun2022: 'Visual C++ 2022 (most games need this)',
+    dotnet48: '.NET Framework 4.8',
+    d3dcompiler_47: 'DirectX shader compiler (common for games)',
+    xact: 'XACT audio (older games)',
+    gdiplus: 'GDI+ graphics',
+    msxml6: 'MSXML 6',
+  } as Record<string, string>,
+
+  // BottleSettings
+  envVars: 'Environment variables',
+  runtimeLabel: 'Runtime: ',
+  runtimeStaging: 'Wine Staging ⚡ (gaming)',
+  runtimeStable: 'Wine Stable',
+  presetEsync: 'esync (game performance)',
+  presetNoDebug: 'Disable debug log',
+  presetMtlHud: 'Metal FPS HUD',
+  presetLocale: 'Chinese locale',
+  addRow: '＋ Add',
+  envSaved: 'Environment variables saved',
+  dangerZone: 'Danger zone',
+  killBottle: 'Force-kill all processes',
+  deleteBottle: 'Delete bottle',
+  confirmDeleteBottle: (name: string) =>
+    `Delete bottle "${name}"?\nAll programs and saves inside will be removed. This cannot be undone.`,
+
+  // LogPanel
+  log: 'Log',
+  collapse: '▼ Collapse',
+  expand: '▲ Expand',
+  copyAll: 'Copy all',
+  clear: 'Clear',
+  noOutput: '(no output)',
+  createChannelName: 'Bottle creation',
+  deletedBottleName: 'deleted',
+}

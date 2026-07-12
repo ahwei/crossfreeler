@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useEnvStore } from '../stores/envStore'
 import { ipc } from '../lib/ipc'
 import { message } from '@tauri-apps/plugin-dialog'
+import { useT } from '../i18n'
 
 function CommandBox({ command }: { command: string }) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
   return (
     <div className="flex items-center gap-2 rounded-lg bg-zinc-950 px-3 py-2 font-mono text-sm text-emerald-300">
@@ -16,7 +18,7 @@ function CommandBox({ command }: { command: string }) {
           setTimeout(() => setCopied(false), 1500)
         }}
       >
-        {copied ? '已複製 ✓' : '複製'}
+        {copied ? t.copied : t.copy}
       </button>
     </div>
   )
@@ -33,6 +35,7 @@ function StatusRow({ ok, label, detail }: { ok: boolean; label: string; detail?:
 }
 
 export function SetupGuide() {
+  const t = useT()
   const { status, detecting, detect } = useEnvStore()
   const [manualPath, setManualPath] = useState('')
   if (!status) return null
@@ -40,27 +43,27 @@ export function SetupGuide() {
   return (
     <div className="flex h-screen items-center justify-center bg-zinc-950 p-8">
       <div className="w-[560px] rounded-2xl border border-zinc-800 bg-zinc-900 p-8">
-        <h1 className="mb-1 text-2xl font-bold text-zinc-100">歡迎使用 CrossFreeler 🍷</h1>
-        <p className="mb-6 text-sm text-zinc-400">執行 Windows 軟體前，需要先完成以下環境設定：</p>
+        <h1 className="mb-1 text-2xl font-bold text-zinc-100">{t.welcome}</h1>
+        <p className="mb-6 text-sm text-zinc-400">{t.setupIntro}</p>
 
         <div className="mb-6 rounded-lg border border-zinc-800 p-4">
           <StatusRow ok={status.rosetta} label="Rosetta 2" />
           <StatusRow ok={!!status.wine} label="Wine" detail={status.wine?.version} />
-          <StatusRow ok={!!status.winetricks} label="winetricks（選用）" detail={status.winetricks ?? undefined} />
+          <StatusRow ok={!!status.winetricks} label={t.winetricksOptional} detail={status.winetricks ?? undefined} />
         </div>
 
         {!status.rosetta && (
           <div className="mb-4">
-            <p className="mb-2 text-sm text-zinc-300">1. 安裝 Rosetta 2（終端機執行）：</p>
+            <p className="mb-2 text-sm text-zinc-300">{t.installRosettaStep}</p>
             <CommandBox command="softwareupdate --install-rosetta --agree-to-license" />
           </div>
         )}
 
         {!status.wine && (
           <div className="mb-4">
-            <p className="mb-2 text-sm text-zinc-300">2. 安裝 Wine（終端機執行）：</p>
+            <p className="mb-2 text-sm text-zinc-300">{t.installWineStep}</p>
             <CommandBox command="brew install --cask wine-stable" />
-            <p className="mt-3 mb-2 text-sm text-zinc-300">或手動指定已安裝的 wine 路徑：</p>
+            <p className="mt-3 mb-2 text-sm text-zinc-300">{t.orManualPath}</p>
             <div className="flex gap-2">
               <input
                 className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600"
@@ -79,7 +82,7 @@ export function SetupGuide() {
                   }
                 }}
               >
-                儲存
+                {t.save}
               </button>
             </div>
           </div>
@@ -90,7 +93,7 @@ export function SetupGuide() {
           disabled={detecting}
           onClick={() => void detect()}
         >
-          {detecting ? '偵測中…' : '重新偵測'}
+          {detecting ? t.detectingBtn : t.redetect}
         </button>
       </div>
     </div>

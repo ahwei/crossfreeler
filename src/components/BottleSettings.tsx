@@ -3,19 +3,21 @@ import { ask, message } from '@tauri-apps/plugin-dialog'
 import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
 import type { Bottle, WindowsVersion } from '../lib/types'
-
-const ENV_PRESETS: { label: string; key: string; value: string }[] = [
-  { label: 'esync（遊戲效能）', key: 'WINEESYNC', value: '1' },
-  { label: '關閉 debug log', key: 'WINEDEBUG', value: '-all' },
-  { label: 'Metal FPS HUD', key: 'MTL_HUD_ENABLED', value: '1' },
-  { label: '中文 locale', key: 'LC_ALL', value: 'zh_TW.UTF-8' },
-]
+import { useT } from '../i18n'
 
 export function BottleSettings({ bottle }: { bottle: Bottle }) {
+  const t = useT()
   const load = useBottleStore((s) => s.load)
   const select = useBottleStore((s) => s.select)
   const [rows, setRows] = useState<[string, string][]>(Object.entries(bottle.envVars))
   const [busy, setBusy] = useState(false)
+
+  const ENV_PRESETS: { label: string; key: string; value: string }[] = [
+    { label: t.presetEsync, key: 'WINEESYNC', value: '1' },
+    { label: t.presetNoDebug, key: 'WINEDEBUG', value: '-all' },
+    { label: t.presetMtlHud, key: 'MTL_HUD_ENABLED', value: '1' },
+    { label: t.presetLocale, key: 'LC_ALL', value: 'zh_TW.UTF-8' },
+  ]
 
   const saveEnv = async () => {
     const env: Record<string, string> = {}
@@ -25,7 +27,7 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
     try {
       await ipc.updateBottleEnv(bottle.id, env)
       await load()
-      await message('環境變數已儲存', { title: 'CrossFreeler' })
+      await message(t.envSaved, { title: 'CrossFreeler' })
     } catch (e) {
       await message(String(e), { kind: 'error' })
     }
@@ -44,10 +46,7 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
   }
 
   const removeBottle = async () => {
-    const yes = await ask(
-      `確定刪除 Bottle「${bottle.name}」？\n裡面安裝的所有程式與存檔都會一併刪除，無法復原。`,
-      { title: 'CrossFreeler', kind: 'warning' },
-    )
+    const yes = await ask(t.confirmDeleteBottle(bottle.name), { title: 'CrossFreeler', kind: 'warning' })
     if (!yes) return
     try {
       await ipc.deleteBottle(bottle.id)
@@ -61,7 +60,7 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
   return (
     <div className="max-w-2xl space-y-6 p-4">
       <section>
-        <h3 className="mb-2 font-medium text-zinc-200">Windows 版本</h3>
+        <h3 className="mb-2 font-medium text-zinc-200">{t.windowsVersion}</h3>
         <select
           className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
           value={bottle.windowsVersion}
@@ -73,12 +72,13 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
           <option value="win7">Windows 7</option>
         </select>
         <span className="ml-3 text-sm text-zinc-500">
-          Runtime：{bottle.runtime === 'staging' ? 'Wine Staging ⚡（遊戲）' : 'Wine Stable'}
+          {t.runtimeLabel}
+          {bottle.runtime === 'staging' ? t.runtimeStaging : t.runtimeStable}
         </span>
       </section>
 
       <section>
-        <h3 className="mb-2 font-medium text-zinc-200">環境變數</h3>
+        <h3 className="mb-2 font-medium text-zinc-200">{t.envVars}</h3>
         <div className="mb-2 flex flex-wrap gap-1.5">
           {ENV_PRESETS.map((p) => (
             <button
@@ -122,31 +122,31 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
             className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:border-zinc-500"
             onClick={() => setRows([...rows, ['', '']])}
           >
-            ＋ 新增
+            {t.addRow}
           </button>
           <button
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
             onClick={() => void saveEnv()}
           >
-            儲存
+            {t.save}
           </button>
         </div>
       </section>
 
       <section className="border-t border-zinc-800 pt-4">
-        <h3 className="mb-2 font-medium text-red-400">危險區</h3>
+        <h3 className="mb-2 font-medium text-red-400">{t.dangerZone}</h3>
         <div className="flex gap-2">
           <button
             className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-amber-400 hover:border-amber-600"
             onClick={() => void ipc.killBottle(bottle.id).catch((e) => message(String(e), { kind: 'error' }))}
           >
-            強制關閉所有程序
+            {t.killBottle}
           </button>
           <button
             className="rounded-lg border border-red-900 px-4 py-2 text-sm text-red-400 hover:border-red-600"
             onClick={() => void removeBottle()}
           >
-            刪除 Bottle
+            {t.deleteBottle}
           </button>
         </div>
       </section>

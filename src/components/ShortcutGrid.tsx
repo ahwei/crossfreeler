@@ -4,8 +4,10 @@ import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
 import { ShortcutModal } from './ShortcutModal'
 import type { Bottle, Shortcut } from '../lib/types'
+import { useT } from '../i18n'
 
 export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
+  const t = useT()
   const load = useBottleStore((s) => s.load)
   const [editing, setEditing] = useState<(Partial<Shortcut> & { exePath: string }) | null>(null)
 
@@ -17,28 +19,28 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
     }
   }
 
-  const pickAndRun = async () => {
-    const picked = await open({
-      title: '選擇 Windows 程式',
-      filters: [{ name: 'Windows 程式', extensions: ['exe', 'msi', 'bat'] }],
+  const pickExe = () =>
+    open({
+      title: t.pickProgram,
+      filters: [{ name: t.windowsPrograms, extensions: ['exe', 'msi', 'bat'] }],
     })
+
+  const pickAndRun = async () => {
+    const picked = await pickExe()
     if (typeof picked !== 'string') return
     await runExe(picked)
-    const save = await ask('要把這個程式保存為捷徑嗎？', { title: 'CrossFreeler' })
+    const save = await ask(t.saveAsShortcut, { title: 'CrossFreeler' })
     if (save) setEditing({ exePath: picked })
   }
 
   const pickAndAdd = async () => {
-    const picked = await open({
-      title: '選擇 Windows 程式',
-      filters: [{ name: 'Windows 程式', extensions: ['exe', 'msi', 'bat'] }],
-    })
+    const picked = await pickExe()
     if (typeof picked !== 'string') return
     setEditing({ exePath: picked })
   }
 
   const remove = async (s: Shortcut) => {
-    const yes = await ask(`確定刪除捷徑「${s.name}」？`, { title: 'CrossFreeler', kind: 'warning' })
+    const yes = await ask(t.confirmDeleteShortcut(s.name), { title: 'CrossFreeler', kind: 'warning' })
     if (!yes) return
     await ipc.removeShortcut(bottle.id, s.id)
     await load()
@@ -51,20 +53,18 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           onClick={() => void pickAndRun()}
         >
-          ▶ 執行程式…
+          {t.runProgram}
         </button>
         <button
           className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500"
           onClick={() => void pickAndAdd()}
         >
-          ＋ 新增捷徑
+          {t.addShortcut}
         </button>
       </div>
 
       {bottle.shortcuts.length === 0 ? (
-        <p className="py-8 text-center text-sm text-zinc-600">
-          還沒有捷徑。執行安裝程式後，把裝好的 .exe 加成捷徑即可一鍵啟動。
-        </p>
+        <p className="py-8 text-center text-sm text-zinc-600">{t.noShortcuts}</p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
           {bottle.shortcuts.map((s) => (
@@ -85,7 +85,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
                     setEditing(s)
                   }}
                 >
-                  編輯
+                  {t.edit}
                 </button>
                 <button
                   className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-red-400 hover:bg-zinc-700"
@@ -94,7 +94,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
                     void remove(s)
                   }}
                 >
-                  刪除
+                  {t.del}
                 </button>
               </div>
             </div>

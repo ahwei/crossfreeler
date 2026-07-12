@@ -3,21 +3,23 @@ import { message } from '@tauri-apps/plugin-dialog'
 import { ipc } from '../lib/ipc'
 import { useEnvStore } from '../stores/envStore'
 import type { Bottle } from '../lib/types'
+import { useT } from '../i18n'
 
-const PRESET_VERBS: { verb: string; desc: string }[] = [
-  { verb: 'corefonts', desc: '常用西文字型' },
-  { verb: 'cjkfonts', desc: '中日韓字型（中文亂碼必裝）' },
-  { verb: 'vcrun2015', desc: 'Visual C++ 2015' },
-  { verb: 'vcrun2019', desc: 'Visual C++ 2019' },
-  { verb: 'vcrun2022', desc: 'Visual C++ 2022（多數遊戲需要）' },
-  { verb: 'dotnet48', desc: '.NET Framework 4.8' },
-  { verb: 'd3dcompiler_47', desc: 'DirectX shader 編譯器（遊戲常用）' },
-  { verb: 'xact', desc: 'XACT 音效（老遊戲）' },
-  { verb: 'gdiplus', desc: 'GDI+ 繪圖' },
-  { verb: 'msxml6', desc: 'MSXML 6' },
+const PRESET_VERBS = [
+  'corefonts',
+  'cjkfonts',
+  'vcrun2015',
+  'vcrun2019',
+  'vcrun2022',
+  'dotnet48',
+  'd3dcompiler_47',
+  'xact',
+  'gdiplus',
+  'msxml6',
 ]
 
 export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
+  const t = useT()
   const winetricks = useEnvStore((s) => s.status?.winetricks)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [custom, setCustom] = useState('')
@@ -26,9 +28,9 @@ export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
   if (!winetricks) {
     return (
       <div className="p-6 text-sm text-zinc-400">
-        <p className="mb-2">尚未安裝 winetricks，無法使用元件安裝功能。終端機執行：</p>
+        <p className="mb-2">{t.winetricksMissing}</p>
         <code className="rounded bg-zinc-950 px-3 py-2 font-mono text-emerald-300">brew install winetricks</code>
-        <p className="mt-2 text-zinc-600">安裝後回到環境頁按「重新偵測」。</p>
+        <p className="mt-2 text-zinc-600">{t.winetricksAfterInstall}</p>
       </div>
     )
   }
@@ -38,7 +40,7 @@ export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
     setBusy(true)
     try {
       await ipc.runWinetricks(bottle.id, verbs)
-      await message(`安裝完成：${verbs.join(', ')}`, { title: 'CrossFreeler' })
+      await message(t.installDone(verbs.join(', ')), { title: 'CrossFreeler' })
       setSelected(new Set())
     } catch (e) {
       await message(String(e), { kind: 'error' })
@@ -50,7 +52,7 @@ export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
   return (
     <div className="space-y-4 p-4">
       <div className="grid grid-cols-2 gap-1.5">
-        {PRESET_VERBS.map(({ verb, desc }) => (
+        {PRESET_VERBS.map((verb) => (
           <label
             key={verb}
             className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
@@ -69,7 +71,7 @@ export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
               }}
             />
             <span className="font-mono text-zinc-200">{verb}</span>
-            <span className="truncate text-xs text-zinc-500">{desc}</span>
+            <span className="truncate text-xs text-zinc-500">{t.verbDesc[verb]}</span>
           </label>
         ))}
       </div>
@@ -79,13 +81,13 @@ export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
         disabled={busy || selected.size === 0}
         onClick={() => void install([...selected])}
       >
-        {busy ? '安裝中…（過程可能需要數分鐘，見 Log 面板）' : `安裝所選元件（${selected.size}）`}
+        {busy ? t.installingHint : t.installSelected(selected.size)}
       </button>
 
       <div className="flex gap-2 border-t border-zinc-800 pt-4">
         <input
           className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 placeholder-zinc-600"
-          placeholder="自訂 verb，例如 dxvk faudio（空白分隔）"
+          placeholder={t.customVerbPlaceholder}
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           disabled={busy}
@@ -95,7 +97,7 @@ export function WinetricksPanel({ bottle }: { bottle: Bottle }) {
           disabled={busy || !custom.trim()}
           onClick={() => void install(custom.trim().split(/\s+/))}
         >
-          執行
+          {t.run}
         </button>
       </div>
     </div>

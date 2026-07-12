@@ -1,0 +1,125 @@
+export const zh = {
+  appName: 'CrossFreeler',
+  detecting: '環境偵測中…',
+  selectOrCreate: '從左側選擇或建立一個 Bottle',
+
+  // Sidebar
+  bottles: 'Bottles',
+  noBottles: '還沒有 Bottle，點下方按鈕建立。',
+  createBottleBtn: '＋ 建立 Bottle',
+  wineNotDetected: 'Wine 未偵測到',
+
+  // SetupGuide
+  welcome: '歡迎使用 CrossFreeler 🍷',
+  setupIntro: '執行 Windows 軟體前，需要先完成以下環境設定：',
+  winetricksOptional: 'winetricks（選用）',
+  installRosettaStep: '1. 安裝 Rosetta 2（終端機執行）：',
+  installWineStep: '2. 安裝 Wine（終端機執行）：',
+  orManualPath: '或手動指定已安裝的 wine 路徑：',
+  save: '儲存',
+  redetect: '重新偵測',
+  detectingBtn: '偵測中…',
+  copied: '已複製 ✓',
+  copy: '複製',
+
+  // CreateBottleModal
+  createTitle: '建立 Bottle',
+  name: '名稱',
+  namePlaceholder: '例如：星露谷物語',
+  template: '範本',
+  templateGame: '🎮 遊戲',
+  templateApp: '🧰 一般軟體',
+  gameStagingDesc: 'staging + esync',
+  gameNoStagingDesc: 'esync（無 staging，退用 stable）',
+  stableDesc: 'stable',
+  antiCheatWarning: '注意：使用 kernel anti-cheat（EAC / BattlEye）的線上遊戲無法在 Wine 上執行。',
+  windowsVersion: 'Windows 版本',
+  win10Recommended: 'Windows 10（建議）',
+  initializing: '初始化中，約需 30 秒～1 分鐘…',
+  create: '建立',
+  creatingBtn: '建立中…',
+
+  // BottleDetail
+  tabApps: '程式',
+  tabInstalled: '已安裝',
+  tabTricks: '元件',
+  tabSettings: '設定',
+  openDriveC: '開啟 C 槽',
+  clickToRename: '點擊改名',
+
+  // ShortcutGrid
+  runProgram: '▶ 執行程式…',
+  addShortcut: '＋ 新增捷徑',
+  noShortcuts: '還沒有捷徑。執行安裝程式後，把裝好的 .exe 加成捷徑即可一鍵啟動。',
+  edit: '編輯',
+  del: '刪除',
+  pickProgram: '選擇 Windows 程式',
+  windowsPrograms: 'Windows 程式',
+  saveAsShortcut: '要把這個程式保存為捷徑嗎？',
+  confirmDeleteShortcut: (name: string) => `確定刪除捷徑「${name}」？`,
+  editShortcut: '編輯捷徑',
+  newShortcut: '新增捷徑',
+  programPath: '程式路徑',
+  launchArgs: '啟動參數（選填）',
+
+  // InstalledPanel
+  installedIntro: '從此 Bottle 的 Windows 解除安裝資訊列出已安裝程式。',
+  refresh: '重新整理',
+  openUninstallerGui: '開啟解除安裝工具（GUI）',
+  uninstall: '解除安裝',
+  confirmUninstall: (name: string) => `確定解除安裝「${name}」？`,
+  noPrograms: '沒有找到已安裝的程式。跑過安裝程式後再回來看看。',
+  loading: '載入中…',
+  uninstallStarted: '已啟動解除安裝程式（可能會跳出精靈視窗），過程見 Log 面板。',
+
+  // WinetricksPanel
+  winetricksMissing: '尚未安裝 winetricks，無法使用元件安裝功能。終端機執行：',
+  winetricksAfterInstall: '安裝後回到環境頁按「重新偵測」。',
+  installSelected: (n: number) => `安裝所選元件（${n}）`,
+  installingHint: '安裝中…（過程可能需要數分鐘，見 Log 面板）',
+  customVerbPlaceholder: '自訂 verb，例如 dxvk faudio（空白分隔）',
+  run: '執行',
+  installDone: (verbs: string) => `安裝完成：${verbs}`,
+  atLeastOneVerb: '請至少選擇一個元件',
+  verbDesc: {
+    corefonts: '常用西文字型',
+    cjkfonts: '中日韓字型（中文亂碼必裝）',
+    vcrun2015: 'Visual C++ 2015',
+    vcrun2019: 'Visual C++ 2019',
+    vcrun2022: 'Visual C++ 2022（多數遊戲需要）',
+    dotnet48: '.NET Framework 4.8',
+    d3dcompiler_47: 'DirectX shader 編譯器（遊戲常用）',
+    xact: 'XACT 音效（老遊戲）',
+    gdiplus: 'GDI+ 繪圖',
+    msxml6: 'MSXML 6',
+  } as Record<string, string>,
+
+  // BottleSettings
+  envVars: '環境變數',
+  runtimeLabel: 'Runtime：',
+  runtimeStaging: 'Wine Staging ⚡（遊戲）',
+  runtimeStable: 'Wine Stable',
+  presetEsync: 'esync（遊戲效能）',
+  presetNoDebug: '關閉 debug log',
+  presetMtlHud: 'Metal FPS HUD',
+  presetLocale: '中文 locale',
+  addRow: '＋ 新增',
+  envSaved: '環境變數已儲存',
+  dangerZone: '危險區',
+  killBottle: '強制關閉所有程序',
+  deleteBottle: '刪除 Bottle',
+  confirmDeleteBottle: (name: string) =>
+    `確定刪除 Bottle「${name}」？\n裡面安裝的所有程式與存檔都會一併刪除，無法復原。`,
+
+  // LogPanel
+  log: 'Log',
+  collapse: '▼ 收合',
+  expand: '▲ 展開',
+  copyAll: '複製全部',
+  clear: '清除',
+  noOutput: '（無輸出）',
+  createChannelName: '建立程序',
+  deletedBottleName: '已刪除',
+}
+
+export type Dict = typeof zh

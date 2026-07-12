@@ -180,7 +180,7 @@ pub fn open_drive_c(app: AppHandle, state: State<'_, ConfigState>, id: String) -
 }
 
 #[tauri::command]
-pub fn run_winecfg(app: AppHandle, state: State<'_, ConfigState>, id: String) -> Result<(), String> {
+pub async fn run_winecfg(app: AppHandle, state: State<'_, ConfigState>, id: String) -> Result<(), String> {
     let c = {
         let config = state.0.lock().unwrap();
         ctx(&app, &config, &id)?
@@ -229,7 +229,7 @@ pub async fn set_windows_version(
 }
 
 #[tauri::command]
-pub fn run_program(
+pub async fn run_program(
     app: AppHandle,
     state: State<'_, ConfigState>,
     bottle_id: String,
@@ -280,6 +280,77 @@ pub async fn run_winetricks(
     runner::emit_log(&app, &bottle_id, &format!("winetricks 開始安裝：{}", args.join(" ")), "stdout");
     let cmd = runner::build_command(&PathBuf::from(winetricks), &args, &c.prefix, &c.wine_bin_dir, &env);
     runner::run_and_wait(&app, &bottle_id, cmd).await
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledProgram {
+    pub key: String,
+    pub name: String,
+}
+
+#[tauri::command]
+pub async fn list_programs(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+) -> Result<Vec<InstalledProgram>, String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let mut cmd = runner::build_command(
+        &c.wine,
+        &["uninstaller".into(), "--list".into()],
+        &c.prefix,
+        &c.wine_bin_dir,
+        &c.env,
+    );
+    let out = cmd.output().await.map_err(|e| format!("執行 uninstaller 失敗：{e}"))?;
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    // 每行格式：<registry key>|||<顯示名稱>
+    let programs = stdout
+        .lines()
+        .filter_map(|line| line.split_once("|||"))
+        .map(|(key, name)| InstalledProgram {
+            key: key.trim().to_string(),
+            name: name.trim().to_string(),
+        })
+        .collect();
+    Ok(programs)
+}
+
+#[tauri::command]
+pub async fn uninstall_program(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    key: String,
+) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let cmd = runner::build_command(
+        &c.wine,
+        &["uninstaller".into(), "--remove".into(), key],
+        &c.prefix,
+        &c.wine_bin_dir,
+        &c.env,
+    );
+    runner::run_detached(&app, &bottle_id, cmd)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_uninstaller(app: AppHandle, state: State<'_, ConfigState>, bottle_id: String) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let cmd = runner::build_command(&c.wine, &["uninstaller".into()], &c.prefix, &c.wine_bin_dir, &c.env);
+    runner::run_detached(&app, &bottle_id, cmd)?;
+    Ok(())
 }
 
 #[derive(serde::Deserialize)]

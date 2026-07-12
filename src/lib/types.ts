@@ -36,6 +36,11 @@ export interface EnvStatus {
   winetricks: string | null
 }
 
+export interface InstalledProgram {
+  key: string
+  name: string
+}
+
 export interface LogLine {
   bottleId: string
   line: string

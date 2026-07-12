@@ -162,6 +162,16 @@ interface Shortcut {
 - **Metal 效能 HUD**：per-bottle 開關 → env `MTL_HUD_ENABLED=1`。
 - **UI 文案**：bottle 建立頁註明 kernel anti-cheat（EAC/BattlEye）線上遊戲不支援。
 
+### F10 — 已安裝程式管理（v1.1 已實作）
+- Bottle 詳細頁「已安裝」tab：`wine uninstaller --list` 解析（格式 `key|||名稱`）列出已安裝程式。
+- 單項「解除安裝」：`wine uninstaller --remove <key>`（detached，解除安裝精靈可能有 GUI）。
+- 「開啟解除安裝工具」按鈕：`wine uninstaller`（GUI）。
+
+### F11 — i18n（v1.1 已實作）
+- 支援繁體中文與英文。自製輕量 dictionary（`src/i18n/`，zh/en 同型別），不引入 i18n 函式庫。
+- 預設跟隨系統語言（`navigator.language`），使用者切換後存 localStorage。切換器在側欄底部。
+- 後端錯誤訊息目前僅中文（已知限制，未來改 error code 由前端翻譯）。
+
 ### F8 — 內建 Wine runtime 下載器（Whisky 模式）
 讓使用者不必碰 Homebrew，開箱即用。
 
