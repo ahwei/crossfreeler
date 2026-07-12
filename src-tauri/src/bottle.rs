@@ -1,0 +1,343 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+use tauri::{AppHandle, State};
+
+use crate::config::{self, AppConfig, Bottle, Shortcut};
+use crate::env as wenv;
+use crate::runner;
+use crate::ConfigState;
+
+/// 建立 bottle 過程的 log 頻道 id（bottle 尚未有正式 id）
+const CREATE_CHANNEL: &str = "__create__";
+
+struct BottleCtx {
+    prefix: PathBuf,
+    wine: PathBuf,
+    wine_bin_dir: PathBuf,
+    env: HashMap<String, String>,
+}
+
+fn ctx(app: &AppHandle, config: &AppConfig, bottle_id: &str) -> Result<BottleCtx, String> {
+    let bottle = config
+        .bottles
+        .iter()
+        .find(|b| b.id == bottle_id)
+        .ok_or_else(|| "找不到此 Bottle".to_string())?;
+    let wine = wenv::resolve_wine(app, config, &bottle.runtime)
+        .ok_or_else(|| "找不到 Wine，請先於環境頁安裝或指定路徑".to_string())?;
+    let wine_bin_dir = wine
+        .parent()
+        .ok_or_else(|| "Wine 路徑異常".to_string())?
+        .to_path_buf();
+    let prefix = config::bottles_dir(app)?.join(&bottle.id);
+    Ok(BottleCtx {
+        prefix,
+        wine,
+        wine_bin_dir,
+        env: bottle.env_vars.clone(),
+    })
+}
+
+#[tauri::command]
+pub fn load_config(state: State<'_, ConfigState>) -> Result<AppConfig, String> {
+    Ok(state.0.lock().unwrap().clone())
+}
+
+#[tauri::command]
+pub async fn create_bottle(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    name: String,
+    windows_version: String,
+    runtime: String,
+    env_vars: HashMap<String, String>,
+) -> Result<Bottle, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("名稱不可為空".into());
+    }
+    let (wine, duplicated) = {
+        let config = state.0.lock().unwrap();
+        (
+            wenv::resolve_wine(&app, &config, &runtime),
+            config.bottles.iter().any(|b| b.name == name),
+        )
+    };
+    if duplicated {
+        return Err(format!("已存在名為「{name}」的 Bottle"));
+    }
+    let wine = wine.ok_or_else(|| "找不到 Wine，請先於環境頁安裝或指定路徑".to_string())?;
+    let wine_bin_dir = wine.parent().unwrap().to_path_buf();
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let prefix = config::bottles_dir(&app)?.join(&id);
+    std::fs::create_dir_all(&prefix).map_err(|e| format!("建立 Bottle 目錄失敗：{e}"))?;
+
+    runner::emit_log(&app, CREATE_CHANNEL, &format!("初始化 Wine prefix（{name}）…"), "stdout");
+    let mut base_env = env_vars.clone();
+    base_env.insert("WINEARCH".into(), "win64".into());
+
+    let cmd = runner::build_command(
+        &wine,
+        &["wineboot".into(), "--init".into()],
+        &prefix,
+        &wine_bin_dir,
+        &base_env,
+    );
+    if let Err(e) = runner::run_and_wait(&app, CREATE_CHANNEL, cmd).await {
+        let _ = std::fs::remove_dir_all(&prefix);
+        return Err(format!("初始化 prefix 失敗：{e}"));
+    }
+
+    runner::emit_log(&app, CREATE_CHANNEL, &format!("設定 Windows 版本為 {windows_version}…"), "stdout");
+    let cmd = runner::build_command(
+        &wine,
+        &["winecfg".into(), "-v".into(), windows_version.clone()],
+        &prefix,
+        &wine_bin_dir,
+        &base_env,
+    );
+    if let Err(e) = runner::run_and_wait(&app, CREATE_CHANNEL, cmd).await {
+        runner::emit_log(&app, CREATE_CHANNEL, &format!("設定 Windows 版本失敗（不影響使用）：{e}"), "stderr");
+    }
+
+    let bottle = Bottle {
+        id,
+        name,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        windows_version,
+        runtime,
+        env_vars,
+        shortcuts: Vec::new(),
+    };
+    {
+        let mut config = state.0.lock().unwrap();
+        config.bottles.push(bottle.clone());
+        config::save(&app, &config)?;
+    }
+    runner::emit_log(&app, CREATE_CHANNEL, "Bottle 建立完成 ✓", "stdout");
+    Ok(bottle)
+}
+
+#[tauri::command]
+pub fn rename_bottle(app: AppHandle, state: State<'_, ConfigState>, id: String, name: String) -> Result<(), String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("名稱不可為空".into());
+    }
+    let mut config = state.0.lock().unwrap();
+    if config.bottles.iter().any(|b| b.name == name && b.id != id) {
+        return Err(format!("已存在名為「{name}」的 Bottle"));
+    }
+    let bottle = config.bottles.iter_mut().find(|b| b.id == id).ok_or("找不到此 Bottle")?;
+    bottle.name = name;
+    config::save(&app, &config)
+}
+
+#[tauri::command]
+pub async fn kill_bottle(app: AppHandle, state: State<'_, ConfigState>, id: String) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &id)?
+    };
+    let wineserver = c.wine_bin_dir.join("wineserver");
+    if !wineserver.is_file() {
+        return Err("找不到 wineserver".into());
+    }
+    let cmd = runner::build_command(&wineserver, &["-k".into()], &c.prefix, &c.wine_bin_dir, &c.env);
+    // wineserver -k 對「沒有執行中程序」會回非零，不視為錯誤
+    let _ = runner::run_and_wait(&app, &id, cmd).await;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn delete_bottle(app: AppHandle, state: State<'_, ConfigState>, id: String) -> Result<(), String> {
+    // 先關掉該 prefix 的所有 wine 程序（失敗不阻擋刪除）
+    let _ = kill_bottle(app.clone(), state.clone(), id.clone()).await;
+
+    let prefix = config::bottles_dir(&app)?.join(&id);
+    if prefix.exists() {
+        std::fs::remove_dir_all(&prefix).map_err(|e| format!("刪除 Bottle 目錄失敗：{e}"))?;
+    }
+    let mut config = state.0.lock().unwrap();
+    config.bottles.retain(|b| b.id != id);
+    config::save(&app, &config)
+}
+
+#[tauri::command]
+pub fn open_drive_c(app: AppHandle, state: State<'_, ConfigState>, id: String) -> Result<(), String> {
+    let config = state.0.lock().unwrap();
+    let c = ctx(&app, &config, &id)?;
+    let drive_c = c.prefix.join("drive_c");
+    if !drive_c.exists() {
+        return Err("此 Bottle 尚未初始化完成（找不到 drive_c）".into());
+    }
+    std::process::Command::new("/usr/bin/open")
+        .arg(drive_c)
+        .spawn()
+        .map_err(|e| format!("開啟 Finder 失敗：{e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn run_winecfg(app: AppHandle, state: State<'_, ConfigState>, id: String) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &id)?
+    };
+    let cmd = runner::build_command(&c.wine, &["winecfg".into()], &c.prefix, &c.wine_bin_dir, &c.env);
+    runner::run_detached(&app, &id, cmd)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_bottle_env(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    id: String,
+    env: HashMap<String, String>,
+) -> Result<(), String> {
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == id).ok_or("找不到此 Bottle")?;
+    bottle.env_vars = env;
+    config::save(&app, &config)
+}
+
+#[tauri::command]
+pub async fn set_windows_version(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    id: String,
+    version: String,
+) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &id)?
+    };
+    let cmd = runner::build_command(
+        &c.wine,
+        &["winecfg".into(), "-v".into(), version.clone()],
+        &c.prefix,
+        &c.wine_bin_dir,
+        &c.env,
+    );
+    runner::run_and_wait(&app, &id, cmd).await?;
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == id).ok_or("找不到此 Bottle")?;
+    bottle.windows_version = version;
+    config::save(&app, &config)
+}
+
+#[tauri::command]
+pub fn run_program(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    exe_path: String,
+    args: String,
+) -> Result<u32, String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let lower = exe_path.to_lowercase();
+    let mut wine_args: Vec<String> = if lower.ends_with(".msi") {
+        vec!["msiexec".into(), "/i".into(), exe_path.clone()]
+    } else if lower.ends_with(".bat") {
+        vec!["cmd".into(), "/c".into(), exe_path.clone()]
+    } else {
+        vec![exe_path.clone()]
+    };
+    // 簡易參數切割（v1 限制：不支援含空白的引號參數）
+    wine_args.extend(args.split_whitespace().map(String::from));
+
+    runner::emit_log(&app, &bottle_id, &format!("啟動：{exe_path}"), "stdout");
+    let cmd = runner::build_command(&c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
+    runner::run_detached(&app, &bottle_id, cmd)
+}
+
+#[tauri::command]
+pub async fn run_winetricks(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    verbs: Vec<String>,
+) -> Result<(), String> {
+    if verbs.is_empty() {
+        return Err("請至少選擇一個元件".into());
+    }
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let winetricks =
+        wenv::find_winetricks().ok_or("找不到 winetricks，請先執行 brew install winetricks")?;
+    let mut env = c.env.clone();
+    env.insert("WINE".into(), c.wine.display().to_string());
+
+    let mut args: Vec<String> = vec!["-q".into()];
+    args.extend(verbs);
+    runner::emit_log(&app, &bottle_id, &format!("winetricks 開始安裝：{}", args.join(" ")), "stdout");
+    let cmd = runner::build_command(&PathBuf::from(winetricks), &args, &c.prefix, &c.wine_bin_dir, &env);
+    runner::run_and_wait(&app, &bottle_id, cmd).await
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortcutInput {
+    pub name: String,
+    pub exe_path: String,
+    #[serde(default)]
+    pub args: String,
+}
+
+#[tauri::command]
+pub fn add_shortcut(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    shortcut: ShortcutInput,
+) -> Result<Shortcut, String> {
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == bottle_id).ok_or("找不到此 Bottle")?;
+    let s = Shortcut {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: shortcut.name,
+        exe_path: shortcut.exe_path,
+        args: shortcut.args,
+    };
+    bottle.shortcuts.push(s.clone());
+    config::save(&app, &config)?;
+    Ok(s)
+}
+
+#[tauri::command]
+pub fn update_shortcut(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    shortcut: Shortcut,
+) -> Result<(), String> {
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == bottle_id).ok_or("找不到此 Bottle")?;
+    let existing = bottle
+        .shortcuts
+        .iter_mut()
+        .find(|s| s.id == shortcut.id)
+        .ok_or("找不到此捷徑")?;
+    *existing = shortcut;
+    config::save(&app, &config)
+}
+
+#[tauri::command]
+pub fn remove_shortcut(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    shortcut_id: String,
+) -> Result<(), String> {
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == bottle_id).ok_or("找不到此 Bottle")?;
+    bottle.shortcuts.retain(|s| s.id != shortcut_id);
+    config::save(&app, &config)
+}

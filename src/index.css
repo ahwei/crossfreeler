@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang TC', 'Noto Sans TC', sans-serif;
+  user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+code {
+  user-select: text;
+}

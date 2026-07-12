@@ -11,13 +11,16 @@ macOS 上類 CrossOver 的 Wine 圖形化前端：管理多個 Wine prefix（稱
 ### 目標
 - 提供 GUI 管理 Wine bottles（建立、設定、刪除）。
 - 在指定 bottle 內執行任意 `.exe` / `.msi`（安裝程式或應用程式）。
+- **以遊戲為主要使用情境**：DXVK 圖形層、esync、Metal HUD、遊戲用 winetricks 元件（見 F9）。
 - 為每個 bottle 保存常用程式捷徑，一鍵啟動。
 - 整合 winetricks 安裝常見執行環境（corefonts、vcrun2022、dotnet48 等）。
 - 即時顯示 Wine 輸出 log，方便除錯。
 
 ### 非目標
 - 不把 Wine 打包進 .app bundle 內（上千個 binary 逐一簽名／公證太複雜）；改採「首次啟動下載 Wine runtime」策略（F8），Homebrew 的 `wine-stable` 作為備用來源。
-- 不做 Windows 虛擬機、不整合 DXVK/遊戲專用優化（可留待未來版本）。
+- 不做 Windows 虛擬機。
+- 不支援依賴 kernel anti-cheat（EAC/BattlEye）的線上遊戲 — 這是所有 Wine 方案的共同限制，UI 文案需註明。
+- 不散布 Apple D3DMetal（GPTK）— 授權不允許；只偵測使用者機器上既有的 GPTK/CrossOver 安裝（F9）。
 - 不支援 Intel Mac 以外的特殊處理——目標平台是 **Apple Silicon + Rosetta 2**（Intel Mac 理論上也能跑，但不特別測試）。
 
 ---
@@ -83,6 +86,7 @@ interface Bottle {
   name: string;                   // 顯示名稱，唯一
   createdAt: string;              // ISO 8601
   windowsVersion: 'win11' | 'win10' | 'win7';  // 建立時經 winecfg registry 設定
+  runtime: 'stable' | 'staging';  // 使用哪個 Wine runtime（遊戲建議 staging）
   envVars: Record<string, string>; // 執行時附加的環境變數（如 WINEDEBUG=-all）
   shortcuts: Shortcut[];
 }
@@ -147,10 +151,26 @@ interface Shortcut {
 - 顯示 F2/F3/F6 產生的即時輸出，上限保留最近 2000 行（ring buffer）。
 - 提供「清除」與「複製全部」。
 
+### F9 — 遊戲支援（主要使用情境）
+- **遊戲範本**：建立 bottle 時可選「一般軟體」或「遊戲」範本。遊戲範本 = staging runtime + 預設 env（`WINEESYNC=1`、`WINEDEBUG=-all`）+ win10。
+- **DXVK**（DirectX 9/10/11 → Vulkan → MoltenVK → Metal）：
+  - 全域下載一次：[Gcenx/DXVK-macOS](https://github.com/Gcenx/DXVK-macOS) 最新 release tarball 解壓到 `<data>/dxvk/<version>/`。
+  - Per-bottle 開關：安裝 = 把 x64 的 `d3d9.dll, d3d10core.dll, d3d11.dll, dxgi.dll` 複製進 `drive_c/windows/system32/`（先備份原檔到 `<bottle>/dxvk-backup/`）+ registry 設 DLL override 為 native；移除 = 還原備份 + 清 override。
+  - UI 顯示每個 bottle 的 DXVK 狀態；`DXVK_HUD=fps` 作為可勾選項。
+- **D3DMetal（Apple GPTK）**：不散布。偵測 CrossOver / GPTK 既有安裝（如 `/Applications/CrossOver.app` 內的 d3dmetal 目錄），偵測到才顯示啟用選項；v1 僅偵測 + 顯示說明。
+- **Retina/HiDPI**：per-bottle 開關，寫 registry `HKCU\Software\Wine\Mac Driver` 的 `RetinaMode`（`y`/`n`）。
+- **Metal 效能 HUD**：per-bottle 開關 → env `MTL_HUD_ENABLED=1`。
+- **UI 文案**：bottle 建立頁註明 kernel anti-cheat（EAC/BattlEye）線上遊戲不支援。
+
 ### F8 — 內建 Wine runtime 下載器（Whisky 模式）
 讓使用者不必碰 Homebrew，開箱即用。
 
-- **來源**：[Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds) 的 GitHub Releases（brew `wine-stable` cask 底層即此來源）。透過 GitHub API `GET /repos/Gcenx/macOS_Wine_builds/releases/latest` 取得最新 stable 資產（`wine-stable-*-osx64.tar.xz`）的下載 URL 與檔名中的版本號。
+> 注意：brew 的 `wine-stable` cask 已被標記 deprecated（Gatekeeper 問題，2026-09 停用），且其依賴 gstreamer-runtime 需要 sudo。直接下載 Gcenx build 是主要路徑，brew 僅為文件上的備選。
+
+- **來源**：[Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds) 的 GitHub Releases。支援兩個 channel：
+  - `stable`（一般軟體）：**latest release 不一定含 stable 資產**，須列出 releases（`GET /repos/Gcenx/macOS_Wine_builds/releases`）找最新含 `wine-stable-*-osx64.tar.xz` 的 release（實測：11.10 release 只有 devel/staging，stable 在 `11.0_1`）。
+  - `staging`（遊戲建議，含 esync 補丁）：latest release 的 `wine-staging-*-osx64.tar.xz`。
+  - 每個 bottle 可指定使用哪個 runtime（`Bottle.runtime: 'stable' | 'staging'`，預設 stable；建立 bottle 時可選「遊戲」範本 → staging + 遊戲環境變數預設）。
 - **流程**：
   1. 導引頁（F1）點「下載內建 Wine」→ 顯示版本號與大小，開始下載到 `runtime/downloads/`（暫存）。
   2. 下載中顯示進度條（bytes 進度透過 Tauri event 推送），可取消。
@@ -248,6 +268,9 @@ UI 要求：
 6. **M6 — Winetricks**：F6 完成。
 7. **M7 — 打包**：`npm run tauri build` 產出可用的 `.app`／`.dmg`；README 補上安裝與使用說明。
 8. **M8 — 內建 Wine runtime**：F8 完成（下載、進度條、解壓、symlink 切換、更新與移除、LGPL 標示）。
+9. **M9 — 遊戲支援**：F9 完成（DXVK 下載與 per-bottle 安裝/移除、遊戲範本、Retina、Metal HUD、D3DMetal 偵測）。
+
+> 遊戲是主要使用情境：v1 至少要含「遊戲範本」（staging runtime + esync env 預設）；DXVK 完整整合可在 v1 之後緊接著做。
 
 ---
 
