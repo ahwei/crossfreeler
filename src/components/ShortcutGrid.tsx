@@ -91,17 +91,19 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
       {bottle.shortcuts.length === 0 ? (
         <p className="py-8 text-center text-sm text-zinc-600">{t.noShortcuts}</p>
       ) : (
+        <>
+        <p className="mb-2 text-xs text-zinc-600">{t.doubleClickHint}</p>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
           {bottle.shortcuts.map((s) => (
             <div
               key={s.id}
-              className={`group cursor-pointer rounded-xl border p-4 ${
+              className={`group cursor-pointer select-none rounded-xl border p-4 ${
                 isRunning(s.exePath)
                   ? 'border-emerald-600/60 bg-emerald-950/20'
                   : 'border-zinc-800 bg-zinc-900 hover:border-indigo-600/60'
               }`}
-              onClick={() => void runExe(s.exePath, s.args, s.name)}
-              title={s.exePath}
+              onDoubleClick={() => void runExe(s.exePath, s.args, s.name)}
+              title={`${s.name}（連點兩下啟動）`}
             >
               <div className="mb-1 flex items-center justify-between">
                 <AppIcon exePath={s.exePath} size={40} />
@@ -137,6 +139,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
             </div>
           ))}
         </div>
+        </>
       )}
 
       {scanning && (
