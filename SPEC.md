@@ -16,7 +16,7 @@ macOS 上類 CrossOver 的 Wine 圖形化前端：管理多個 Wine prefix（稱
 - 即時顯示 Wine 輸出 log，方便除錯。
 
 ### 非目標
-- 不自行打包／散布 Wine 本體（依賴使用者以 Homebrew 安裝 `wine-stable`）。
+- 不把 Wine 打包進 .app bundle 內（上千個 binary 逐一簽名／公證太複雜）；改採「首次啟動下載 Wine runtime」策略（F8），Homebrew 的 `wine-stable` 作為備用來源。
 - 不做 Windows 虛擬機、不整合 DXVK/遊戲專用優化（可留待未來版本）。
 - 不支援 Intel Mac 以外的特殊處理——目標平台是 **Apple Silicon + Rosetta 2**（Intel Mac 理論上也能跑，但不特別測試）。
 
@@ -43,11 +43,12 @@ App 啟動時必須偵測以下項目，缺少時在 UI 顯示導引（不是 cr
 
 1. **Rosetta 2**：`/usr/bin/pgrep -q oahd` 判斷。缺少時提示執行 `softwareupdate --install-rosetta --agree-to-license`。
 2. **Wine**：依序搜尋以下路徑，找到第一個可用的：
+   - `~/Library/Application Support/CrossFreeler/runtime/current/bin/wine`（F8 下載的內建 runtime，優先）
    - `/opt/homebrew/bin/wine`
    - `/usr/local/bin/wine`
    - `/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine`
    - `$PATH` 上的 `wine`
-   找到後執行 `wine --version` 取得版本字串顯示於 UI。缺少時提示 `brew install --cask wine-stable`。
+   找到後執行 `wine --version` 取得版本字串顯示於 UI。缺少時導引頁提供兩個選項：「下載內建 Wine runtime」（F8，主要路徑）或自行 `brew install --cask wine-stable`。
 3. **winetricks**（選用功能）：搜尋 `$PATH` 與 `/opt/homebrew/bin/winetricks`。缺少時 Winetricks 頁面顯示 `brew install winetricks` 導引，其餘功能不受影響。
 
 ---
@@ -60,6 +61,9 @@ App 啟動時必須偵測以下項目，缺少時在 UI 顯示導引（不是 cr
 ```
 ~/Library/Application Support/CrossFreeler/
 ├── config.json          # 全域設定 + bottle 清單 metadata
+├── runtime/             # F8 下載的內建 Wine runtime
+│   ├── current          # symlink → 目前使用的版本目錄
+│   └── wine-10.0/       # 解壓後的 Wine（bin/, lib/, share/...）
 └── bottles/
     └── <bottle-id>/     # WINEPREFIX 本體（drive_c/, *.reg, ...）
 ```
@@ -143,6 +147,20 @@ interface Shortcut {
 - 顯示 F2/F3/F6 產生的即時輸出，上限保留最近 2000 行（ring buffer）。
 - 提供「清除」與「複製全部」。
 
+### F8 — 內建 Wine runtime 下載器（Whisky 模式）
+讓使用者不必碰 Homebrew，開箱即用。
+
+- **來源**：[Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds) 的 GitHub Releases（brew `wine-stable` cask 底層即此來源）。透過 GitHub API `GET /repos/Gcenx/macOS_Wine_builds/releases/latest` 取得最新 stable 資產（`wine-stable-*-osx64.tar.xz`）的下載 URL 與檔名中的版本號。
+- **流程**：
+  1. 導引頁（F1）點「下載內建 Wine」→ 顯示版本號與大小，開始下載到 `runtime/downloads/`（暫存）。
+  2. 下載中顯示進度條（bytes 進度透過 Tauri event 推送），可取消。
+  3. 完成後驗證 tar 可解壓 → 解壓到 `runtime/wine-<version>/`（實際 tarball 內容是 `Wine Stable.app`，取其中 `Contents/Resources/wine/` 目錄即可）→ 更新 `runtime/current` symlink → 移除 `com.apple.quarantine` attribute（`xattr -dr`）→ 刪除暫存檔。
+  4. 重新執行環境偵測，UI 自動進入正常模式。
+- **更新**：設定頁顯示目前 runtime 版本，提供「檢查更新」；有新版時同流程下載，完成後切換 symlink，舊版本目錄保留一份供回退（最多保留 2 個版本）。
+- **移除**：設定頁可刪除內建 runtime（若使用者改用 brew 版）。
+- **失敗處理**：下載／解壓失敗要清理暫存並顯示可讀錯誤，導引頁保留 brew 備用方案文字。
+- **LGPL 合規**：README 與 app 的「關於」頁需註明 Wine 為 LGPL 授權、標示原始碼連結（winehq.org 與 Gcenx repo）。
+
 ---
 
 ## 6. 後端（Rust）介面
@@ -174,6 +192,12 @@ run_winetricks(bottle_id: String, verbs: Vec<String>)
 add_shortcut(bottle_id: String, shortcut: ShortcutInput) -> Shortcut
 update_shortcut(bottle_id: String, shortcut: Shortcut)
 remove_shortcut(bottle_id: String, shortcut_id: String)
+
+// Wine runtime（F8）
+check_runtime_release() -> RuntimeRelease   // { version, url, sizeBytes }，查 GitHub API
+download_runtime(url: String, version: String)  // 長任務，進度走 event `runtime-progress`
+cancel_runtime_download()
+remove_runtime()
 ```
 
 實作注意：
@@ -223,6 +247,7 @@ UI 要求：
 5. **M5 — 捷徑 + 設定**：F4 + F5 完成。
 6. **M6 — Winetricks**：F6 完成。
 7. **M7 — 打包**：`npm run tauri build` 產出可用的 `.app`／`.dmg`；README 補上安裝與使用說明。
+8. **M8 — 內建 Wine runtime**：F8 完成（下載、進度條、解壓、symlink 切換、更新與移除、LGPL 標示）。
 
 ---
 
@@ -235,6 +260,8 @@ UI 要求：
 - [ ] 刪除 bottle 後目錄與 config 皆清乾淨，執行中的 wineserver 有被 kill。
 - [ ] 含中文與空白的 exe 路徑可正常執行。
 - [ ] `npm run tauri build` 成功產出 .app。
+- [ ] 未裝 Wine 的機器可從導引頁下載內建 runtime，完成後不重啟 app 即可建立 bottle（M8）。
+- [ ] 下載中途取消不留殘檔；斷網失敗顯示可讀錯誤（M8）。
 
 ---
 
