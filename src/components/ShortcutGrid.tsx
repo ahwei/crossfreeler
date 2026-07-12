@@ -4,6 +4,7 @@ import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
 import { useRunningStore, runningKey } from '../stores/runningStore'
 import { ShortcutModal } from './ShortcutModal'
+import { ExePickerModal } from './ExePickerModal'
 import type { Bottle, Shortcut } from '../lib/types'
 import { useT } from '../i18n'
 
@@ -13,6 +14,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
   const running = useRunningStore((s) => s.running)
   const markStarted = useRunningStore((s) => s.markStarted)
   const [editing, setEditing] = useState<(Partial<Shortcut> & { exePath: string }) | null>(null)
+  const [scanning, setScanning] = useState(false)
 
   const isRunning = (exePath: string) => runningKey(bottle.id, exePath) in running
 
@@ -67,6 +69,12 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
           onClick={() => void pickAndRun()}
         >
           {t.runProgram}
+        </button>
+        <button
+          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500"
+          onClick={() => setScanning(true)}
+        >
+          {t.scanShortcut}
         </button>
         <button
           className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500"
@@ -127,6 +135,16 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
         </div>
       )}
 
+      {scanning && (
+        <ExePickerModal
+          bottleId={bottle.id}
+          onPick={(exePath) => {
+            setEditing({ exePath })
+            setScanning(false)
+          }}
+          onClose={() => setScanning(false)}
+        />
+      )}
       {editing && <ShortcutModal bottleId={bottle.id} initial={editing} onClose={() => setEditing(null)} />}
     </div>
   )

@@ -56,7 +56,8 @@ export const en: Dict = {
 
   // ShortcutGrid
   runProgram: '▶ Run program…',
-  addShortcut: '＋ Add shortcut',
+  addShortcut: '＋ Pick file',
+  scanShortcut: '🔍 Scan installed',
   noShortcuts: 'No shortcuts yet. Run an installer, then add the installed .exe as a shortcut.',
   edit: 'Edit',
   del: 'Delete',

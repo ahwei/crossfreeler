@@ -54,7 +54,8 @@ export const zh = {
 
   // ShortcutGrid
   runProgram: '▶ 執行程式…',
-  addShortcut: '＋ 新增捷徑',
+  addShortcut: '＋ 手動選檔',
+  scanShortcut: '🔍 掃描已安裝程式',
   noShortcuts: '還沒有捷徑。執行安裝程式後，把裝好的 .exe 加成捷徑即可一鍵啟動。',
   edit: '編輯',
   del: '刪除',
