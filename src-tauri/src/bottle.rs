@@ -252,7 +252,11 @@ pub async fn run_program(
     wine_args.extend(args.split_whitespace().map(String::from));
 
     runner::emit_log(&app, &bottle_id, &format!("啟動：{exe_path}"), "stdout");
-    let cmd = runner::build_command(&c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
+    let mut cmd = runner::build_command(&c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
+    // Windows 程式預期 cwd = 程式所在目錄（自解壓檔也會解到這裡）
+    if let Some(parent) = PathBuf::from(&exe_path).parent().filter(|p| p.is_dir()) {
+        cmd.current_dir(parent);
+    }
     runner::run_detached(&app, &bottle_id, cmd)
 }
 

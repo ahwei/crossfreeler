@@ -75,7 +75,8 @@ export const en: Dict = {
   openUninstallerGui: 'Open uninstaller (GUI)',
   uninstall: 'Uninstall',
   confirmUninstall: (name: string) => `Uninstall "${name}"?`,
-  noPrograms: 'No installed programs found. Run an installer first.',
+  noPrograms:
+    'No installed programs found. Only programs registered in the Windows uninstall registry appear here; for portable / self-extracting games, add a shortcut directly in the Programs tab.',
   loading: 'Loading…',
   uninstallStarted: 'Uninstaller started (a wizard window may appear). See the log panel.',
   createShortcutBtn: 'Create shortcut',

@@ -24,6 +24,8 @@ pub fn emit_log(app: &AppHandle, bottle_id: &str, line: &str, stream: &str) {
 }
 
 /// 建立乾淨環境的指令：白名單環境變數 + WINEPREFIX + bottle 自訂值。
+/// cwd 一律設在 prefix 內或呼叫端指定的目錄（避免繼承 app 的 cwd，
+/// 否則自解壓安裝檔會把內容解到 app 工作目錄）。
 pub fn build_command(
     program: &Path,
     args: &[String],
@@ -33,6 +35,7 @@ pub fn build_command(
 ) -> Command {
     let mut cmd = Command::new(program);
     cmd.args(args);
+    cmd.current_dir(if prefix.is_dir() { prefix } else { Path::new("/tmp") });
     cmd.env_clear();
     for key in ["HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL"] {
         if let Ok(v) = std::env::var(key) {

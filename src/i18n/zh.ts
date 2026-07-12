@@ -73,7 +73,8 @@ export const zh = {
   openUninstallerGui: '開啟解除安裝工具（GUI）',
   uninstall: '解除安裝',
   confirmUninstall: (name: string) => `確定解除安裝「${name}」？`,
-  noPrograms: '沒有找到已安裝的程式。跑過安裝程式後再回來看看。',
+  noPrograms:
+    '沒有找到已安裝的程式。只有寫入 Windows 解除安裝登錄的程式會出現在這裡；免安裝／自解壓型遊戲請直接到「程式」tab 用「＋ 新增捷徑」。',
   loading: '載入中…',
   uninstallStarted: '已啟動解除安裝程式（可能會跳出精靈視窗），過程見 Log 面板。',
   createShortcutBtn: '建立捷徑',
