@@ -83,6 +83,9 @@ export const en: Dict = {
   newShortcut: 'New shortcut',
   programPath: 'Program path',
   launchArgs: 'Launch arguments (optional)',
+  shortcutEngineLabel: 'Engine (this shortcut)',
+  engineFollowBottle: 'Follow bottle setting',
+  shortcutEngineHint: "e.g. RO's patcher needs Staging to avoid crashing, while the game itself needs the CrossOver engine.",
 
   // InstalledPanel
   installedIntro:

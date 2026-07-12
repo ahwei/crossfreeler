@@ -12,6 +12,10 @@ pub struct Shortcut {
     pub exe_path: String,
     #[serde(default)]
     pub args: String,
+    /// 覆寫此捷徑使用的引擎（None = 跟隨 bottle）。
+    /// 例：RO patcher 需要新版 wine（staging），遊戲本體需要 crossover。
+    #[serde(default)]
+    pub runtime: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

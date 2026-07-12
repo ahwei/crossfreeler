@@ -272,10 +272,19 @@ pub async fn run_program(
     exe_path: String,
     args: String,
     name: Option<String>,
+    runtime: Option<String>,
 ) -> Result<u32, String> {
     let c = {
         let config = state.0.lock().unwrap();
-        ctx(&app, &config, &bottle_id)?
+        let mut c = ctx(&app, &config, &bottle_id)?;
+        // 捷徑層級的引擎覆寫（例：patcher 用 staging、遊戲本體用 crossover）
+        if let Some(rt) = runtime.filter(|r| !r.is_empty()) {
+            let wine = wenv::resolve_wine(&app, &config, &rt)
+                .ok_or_else(|| "找不到指定的 Wine 引擎".to_string())?;
+            c.wine_bin_dir = wine.parent().ok_or("Wine 路徑異常")?.to_path_buf();
+            c.wine = wine;
+        }
+        c
     };
     let lower = exe_path.to_lowercase();
     let mut wine_args: Vec<String> = if lower.ends_with(".msi") {
@@ -728,6 +737,8 @@ pub struct ShortcutInput {
     pub exe_path: String,
     #[serde(default)]
     pub args: String,
+    #[serde(default)]
+    pub runtime: Option<String>,
 }
 
 #[tauri::command]
@@ -744,6 +755,7 @@ pub fn add_shortcut(
         name: shortcut.name,
         exe_path: shortcut.exe_path,
         args: shortcut.args,
+        runtime: shortcut.runtime,
     };
     bottle.shortcuts.push(s.clone());
     config::save(&app, &config)?;

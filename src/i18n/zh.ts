@@ -79,6 +79,9 @@ export const zh = {
   newShortcut: '新增捷徑',
   programPath: '程式路徑',
   launchArgs: '啟動參數（選填）',
+  shortcutEngineLabel: '引擎（此捷徑）',
+  engineFollowBottle: '跟隨 Bottle 設定',
+  shortcutEngineHint: '例：RO 的 patcher 要用 Staging 才不會閃退，遊戲本體用 CrossOver 引擎。',
 
   // InstalledPanel
   installedIntro: '「掃描已安裝程式」自動找出 bottle 內的 .exe 建捷徑；找不到就用「手動選檔」。下方清單來自 Windows 解除安裝登錄（部分遊戲不會登錄，屬正常）。',

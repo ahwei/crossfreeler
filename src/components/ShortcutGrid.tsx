@@ -19,7 +19,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
 
   const isRunning = (exePath: string) => runningKey(bottle.id, exePath) in running
 
-  const runExe = async (exePath: string, args = '', name?: string) => {
+  const runExe = async (exePath: string, args = '', name?: string, runtime?: string | null) => {
     if (isRunning(exePath)) {
       const again = await ask(t.confirmLaunchAgain(name ?? exePath.split('/').pop() ?? ''), {
         title: 'CrossFreeler',
@@ -28,7 +28,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
       if (!again) return
     }
     try {
-      const pid = await ipc.runProgram(bottle.id, exePath, args, name)
+      const pid = await ipc.runProgram(bottle.id, exePath, args, name, runtime)
       markStarted(bottle.id, exePath, pid)
     } catch (e) {
       await message(String(e), { kind: 'error' })
@@ -102,7 +102,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
                   ? 'border-emerald-600/60 bg-emerald-950/20'
                   : 'border-zinc-800 bg-zinc-900 hover:border-indigo-600/60'
               }`}
-              onDoubleClick={() => void runExe(s.exePath, s.args, s.name)}
+              onDoubleClick={() => void runExe(s.exePath, s.args, s.name, s.runtime)}
               title={`${s.name}（連點兩下啟動）`}
             >
               <div className="mb-1 flex items-center justify-between">

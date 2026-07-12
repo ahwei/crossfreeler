@@ -6,6 +6,8 @@ export interface Shortcut {
   name: string
   exePath: string
   args: string
+  /** 覆寫引擎；null = 跟隨 bottle */
+  runtime?: RuntimeChannel | null
 }
 
 export interface DisplaySettings {

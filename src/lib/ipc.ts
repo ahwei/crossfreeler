@@ -29,8 +29,8 @@ export const ipc = {
   setRuntime: (id: string, runtime: RuntimeChannel) => invoke<void>('set_runtime', { id, runtime }),
   setWindowsVersion: (id: string, version: WindowsVersion) => invoke<void>('set_windows_version', { id, version }),
 
-  runProgram: (bottleId: string, exePath: string, args = '', name?: string) =>
-    invoke<number>('run_program', { bottleId, exePath, args, name }),
+  runProgram: (bottleId: string, exePath: string, args = '', name?: string, runtime?: string | null) =>
+    invoke<number>('run_program', { bottleId, exePath, args, name, runtime }),
   runWinetricks: (bottleId: string, verbs: string[]) => invoke<void>('run_winetricks', { bottleId, verbs }),
 
   listPrograms: (bottleId: string) => invoke<InstalledProgram[]>('list_programs', { bottleId }),
@@ -44,7 +44,7 @@ export const ipc = {
   uninstallProgram: (bottleId: string, key: string) => invoke<void>('uninstall_program', { bottleId, key }),
   openUninstaller: (bottleId: string) => invoke<void>('open_uninstaller', { bottleId }),
 
-  addShortcut: (bottleId: string, shortcut: { name: string; exePath: string; args: string }) =>
+  addShortcut: (bottleId: string, shortcut: { name: string; exePath: string; args: string; runtime?: string | null }) =>
     invoke<Shortcut>('add_shortcut', { bottleId, shortcut }),
   updateShortcut: (bottleId: string, shortcut: Shortcut) => invoke<void>('update_shortcut', { bottleId, shortcut }),
   removeShortcut: (bottleId: string, shortcutId: string) => invoke<void>('remove_shortcut', { bottleId, shortcutId }),
