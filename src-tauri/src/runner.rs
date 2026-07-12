@@ -99,20 +99,24 @@ pub fn build_named_command(
 
 /// 過濾掉會洗版又無資訊量的行（MoltenVK/Vulkan 能力清單、SEH unwind trace）。
 fn is_noise(line: &str) -> bool {
-    let l = line.trim_start();
-    l.starts_with("[mvk-info]")
-        || l.starts_with("VK_")
-        || l.starts_with("trace:seh:")
-        || l.contains("GPU Family")
-        || l.contains("Metal Shading Language")
-        || l.contains("Read-Write Texture")
+    let raw = line.trim_start();
+    if raw.starts_with("VK_") || raw.starts_with("[mvk-info]") || raw.starts_with("trace:seh:") {
+        return true;
+    }
+    let l = raw.to_lowercase();
+    l.contains("vulkan extension")
         || l.contains("the following")
         || l.contains("supports the")
-        || (l.starts_with("model:") || l.starts_with("type:"))
-        || l.contains("vendorID")
-        || l.contains("deviceID")
-        || l.contains("pipelineCacheUUID")
-        || l.contains("GPU memory")
+        || l.contains("gpu family")
+        || l.contains("metal shading language")
+        || l.contains("read-write texture")
+        || l.starts_with("model:")
+        || l.starts_with("type:")
+        || l.contains("vendorid")
+        || l.contains("deviceid")
+        || l.contains("pipelinecacheuuid")
+        || l.contains("gpu memory")
+        || l.contains("created vkinstance")
 }
 
 fn pipe_logs(app: &AppHandle, bottle_id: &str, child: &mut tokio::process::Child) {
