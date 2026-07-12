@@ -8,6 +8,12 @@ export interface Shortcut {
   args: string
 }
 
+export interface DisplaySettings {
+  retina: boolean
+  dpi: number
+  virtualDesktop: string | null
+}
+
 export interface Bottle {
   id: string
   name: string
@@ -16,6 +22,7 @@ export interface Bottle {
   runtime: RuntimeChannel
   envVars: Record<string, string>
   shortcuts: Shortcut[]
+  display: DisplaySettings
 }
 
 export interface AppConfig {

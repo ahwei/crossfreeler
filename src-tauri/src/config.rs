@@ -27,6 +27,30 @@ pub struct Bottle {
     pub env_vars: HashMap<String, String>,
     #[serde(default)]
     pub shortcuts: Vec<Shortcut>,
+    #[serde(default)]
+    pub display: DisplaySettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisplaySettings {
+    #[serde(default)]
+    pub retina: bool,
+    #[serde(default = "default_dpi")]
+    pub dpi: u32,
+    /// 虛擬桌面解析度，如 "1024x768"；None = 關閉（全螢幕直接輸出）
+    #[serde(default)]
+    pub virtual_desktop: Option<String>,
+}
+
+impl Default for DisplaySettings {
+    fn default() -> Self {
+        Self { retina: false, dpi: 96, virtual_desktop: None }
+    }
+}
+
+fn default_dpi() -> u32 {
+    96
 }
 
 fn default_runtime() -> String {

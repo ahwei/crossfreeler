@@ -123,6 +123,23 @@ export const en: Dict = {
   presetLocale: 'Chinese locale (UTF-8)',
   addRow: '＋ Add',
   envSaved: 'Environment variables saved',
+  // Fonts
+  fontsSection: 'Fonts (fix garbled text)',
+  installFontsBtn: 'Install CJK fonts',
+  fontsHint:
+    'Injects macOS built-in fonts (incl. Microsoft ones) and sets substitutes; use when text is garbled. Restart the program to take effect.',
+  fontsInstalling: 'Installing fonts…',
+  fontsDone: 'Fonts installed — restart the game to take effect',
+  // Display / resolution
+  displaySection: 'Display & resolution',
+  retinaLabel: 'Retina HiDPI',
+  dpiLabel: 'Font scaling (DPI)',
+  virtualDesktopLabel: 'Virtual desktop (fixed window resolution)',
+  vdOff: 'Off (render fullscreen directly)',
+  vdHint:
+    'When a game has resolution issues, black screen, or broken layout, a virtual desktop confines rendering to one window — most reliable.',
+  applyDisplay: 'Apply display settings',
+  applyingDisplay: 'Applying…',
   dangerZone: 'Danger zone',
   killBottle: 'Force-kill all processes',
   deleteBottle: 'Delete bottle',

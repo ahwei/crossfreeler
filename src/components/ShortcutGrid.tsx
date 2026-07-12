@@ -5,6 +5,7 @@ import { useBottleStore } from '../stores/bottleStore'
 import { useRunningStore, runningKey } from '../stores/runningStore'
 import { ShortcutModal } from './ShortcutModal'
 import { ExePickerModal } from './ExePickerModal'
+import { AppIcon } from './AppIcon'
 import type { Bottle, Shortcut } from '../lib/types'
 import { useT } from '../i18n'
 
@@ -34,11 +35,14 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
     }
   }
 
-  const pickExe = () =>
-    open({
+  const pickExe = async () => {
+    const defaultPath = await ipc.driveCPath(bottle.id).catch(() => undefined)
+    return open({
       title: t.pickProgram,
+      defaultPath,
       filters: [{ name: t.windowsPrograms, extensions: ['exe', 'msi', 'bat'] }],
     })
+  }
 
   const pickAndRun = async () => {
     const picked = await pickExe()
@@ -100,7 +104,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
               title={s.exePath}
             >
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-2xl">🎮</span>
+                <AppIcon exePath={s.exePath} size={40} />
                 {isRunning(s.exePath) && (
                   <span className="flex items-center gap-1.5 rounded-full bg-emerald-600/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />

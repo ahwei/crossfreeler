@@ -31,8 +31,10 @@ export function ExePickerModal({ bottleId, onPick, onClose }: Props) {
   if (exes === null && !loading) void load()
 
   const manualPick = async () => {
+    const defaultPath = await ipc.driveCPath(bottleId).catch(() => undefined)
     const picked = await open({
       title: t.pickProgram,
+      defaultPath,
       filters: [{ name: t.windowsPrograms, extensions: ['exe', 'bat'] }],
     })
     if (typeof picked === 'string') onPick(picked)

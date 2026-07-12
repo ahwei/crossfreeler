@@ -1,5 +1,15 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { AppConfig, Bottle, EnvStatus, ExeEntry, InstalledProgram, Shortcut, WindowsVersion, RuntimeChannel } from './types'
+import type {
+  AppConfig,
+  Bottle,
+  DisplaySettings,
+  EnvStatus,
+  ExeEntry,
+  InstalledProgram,
+  Shortcut,
+  WindowsVersion,
+  RuntimeChannel,
+} from './types'
 
 export const ipc = {
   detectEnvironment: () => invoke<EnvStatus>('detect_environment'),
@@ -23,6 +33,10 @@ export const ipc = {
 
   listPrograms: (bottleId: string) => invoke<InstalledProgram[]>('list_programs', { bottleId }),
   listExes: (bottleId: string) => invoke<ExeEntry[]>('list_exes', { bottleId }),
+  driveCPath: (bottleId: string) => invoke<string>('drive_c_path', { bottleId }),
+  installFonts: (bottleId: string) => invoke<void>('install_fonts', { bottleId }),
+  setDisplay: (bottleId: string, display: DisplaySettings) => invoke<void>('set_display', { bottleId, display }),
+  extractIcon: (path: string) => invoke<string | null>('extract_icon', { path }),
   uninstallProgram: (bottleId: string, key: string) => invoke<void>('uninstall_program', { bottleId, key }),
   openUninstaller: (bottleId: string) => invoke<void>('open_uninstaller', { bottleId }),
 

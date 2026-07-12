@@ -17,8 +17,10 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
   const [shortcutInit, setShortcutInit] = useState<{ exePath: string; name?: string } | null>(null)
 
   const pickManual = async () => {
+    const defaultPath = await ipc.driveCPath(bottle.id).catch(() => undefined)
     const picked = await open({
       title: t.pickProgram,
+      defaultPath,
       filters: [{ name: t.windowsPrograms, extensions: ['exe', 'bat'] }],
     })
     if (typeof picked === 'string') setShortcutInit({ exePath: picked })

@@ -1,6 +1,7 @@
 mod bottle;
 mod config;
 mod env;
+mod icon;
 mod runner;
 
 use std::sync::Mutex;
@@ -37,6 +38,10 @@ pub fn run() {
             bottle::uninstall_program,
             bottle::open_uninstaller,
             bottle::list_exes,
+            bottle::drive_c_path,
+            bottle::install_fonts,
+            bottle::set_display,
+            bottle::extract_icon,
             bottle::add_shortcut,
             bottle::update_shortcut,
             bottle::remove_shortcut

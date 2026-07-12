@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
 
-use crate::config::{self, AppConfig, Bottle, Shortcut};
+use crate::config::{self, AppConfig, Bottle, DisplaySettings, Shortcut};
 use crate::env as wenv;
 use crate::runner;
 use crate::ConfigState;
@@ -109,6 +109,7 @@ pub async fn create_bottle(
         runtime,
         env_vars,
         shortcuts: Vec::new(),
+        display: DisplaySettings::default(),
     };
     {
         let mut config = state.0.lock().unwrap();
@@ -404,6 +405,166 @@ pub fn list_exes(app: AppHandle, state: State<'_, ConfigState>, bottle_id: Strin
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(out)
+}
+
+/// 回傳 bottle 的 drive_c 絕對路徑（供前端 file dialog 當預設目錄）
+#[tauri::command]
+pub fn drive_c_path(app: AppHandle, state: State<'_, ConfigState>, bottle_id: String) -> Result<String, String> {
+    let config = state.0.lock().unwrap();
+    let c = ctx(&app, &config, &bottle_id)?;
+    Ok(c.prefix.join("drive_c").display().to_string())
+}
+
+/// 在 bottle 內執行 `wine reg add/…`，等待完成。
+async fn run_reg(app: &AppHandle, bottle_id: &str, c: &BottleCtx, args: &[&str]) -> Result<(), String> {
+    let owned: Vec<String> = std::iter::once("reg".to_string())
+        .chain(args.iter().map(|s| s.to_string()))
+        .collect();
+    let mut cmd = runner::build_command(&c.wine, &owned, &c.prefix, &c.wine_bin_dir, &c.env);
+    // reg 不需要圖形；靜音 debug
+    cmd.env("WINEDEBUG", "-all");
+    runner::run_and_wait(app, bottle_id, cmd).await
+}
+
+const MAC_CJK_FONTS: &[&str] = &[
+    "/Library/Fonts/Arial Unicode.ttf",
+    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/STHeiti Medium.ttc",
+    "/System/Library/Fonts/Supplemental/Songti.ttc",
+    "/System/Library/Fonts/Supplemental/Microsoft Sans Serif.ttf",
+    "/System/Library/Fonts/Supplemental/Tahoma.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+];
+
+// 把常見 Windows 字型名導向含完整 CJK 的字型
+const FONT_SUBSTITUTES: &[(&str, &str)] = &[
+    ("MS Shell Dlg", "Arial Unicode MS"),
+    ("MS Shell Dlg 2", "Arial Unicode MS"),
+    ("Tahoma", "Arial Unicode MS"),
+    ("Microsoft Sans Serif", "Arial Unicode MS"),
+    ("MS Sans Serif", "Arial Unicode MS"),
+    ("MS Gothic", "Arial Unicode MS"),
+    ("MS UI Gothic", "Arial Unicode MS"),
+    ("SimSun", "Arial Unicode MS"),
+    ("NSimSun", "Arial Unicode MS"),
+    ("PMingLiU", "Arial Unicode MS"),
+    ("MingLiU", "Arial Unicode MS"),
+    ("Microsoft YaHei", "Arial Unicode MS"),
+    ("Microsoft JhengHei", "Arial Unicode MS"),
+];
+
+/// 一鍵：注入 macOS 內建字型（含微軟系字型）並設定字型替換，修正亂碼。
+#[tauri::command]
+pub async fn install_fonts(app: AppHandle, state: State<'_, ConfigState>, bottle_id: String) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let fonts_dir = c.prefix.join("drive_c/windows/Fonts");
+    std::fs::create_dir_all(&fonts_dir).map_err(|e| format!("建立字型目錄失敗：{e}"))?;
+
+    let mut copied = 0;
+    for src in MAC_CJK_FONTS {
+        let p = std::path::Path::new(src);
+        if p.is_file() {
+            if let Some(name) = p.file_name() {
+                if std::fs::copy(p, fonts_dir.join(name)).is_ok() {
+                    copied += 1;
+                }
+            }
+        }
+    }
+    runner::emit_log(&app, &bottle_id, &format!("已複製 {copied} 個字型檔，設定字型替換…"), "stdout");
+
+    let key = r"HKLM\Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes";
+    for (from, to) in FONT_SUBSTITUTES {
+        run_reg(&app, &bottle_id, &c, &["add", key, "/v", from, "/d", to, "/f"]).await?;
+    }
+    runner::emit_log(&app, &bottle_id, "字型安裝完成 ✓（重開遊戲生效）", "stdout");
+    Ok(())
+}
+
+/// 套用顯示設定（Retina / DPI / 虛擬桌面），並存回 config。
+#[tauri::command]
+pub async fn set_display(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    bottle_id: String,
+    display: DisplaySettings,
+) -> Result<(), String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+
+    // Retina（HiDPI）
+    run_reg(
+        &app,
+        &bottle_id,
+        &c,
+        &[
+            "add",
+            r"HKCU\Software\Wine\Mac Driver",
+            "/v",
+            "RetinaMode",
+            "/d",
+            if display.retina { "y" } else { "n" },
+            "/f",
+        ],
+    )
+    .await?;
+
+    // DPI
+    let dpi = display.dpi.clamp(96, 240).to_string();
+    run_reg(
+        &app,
+        &bottle_id,
+        &c,
+        &["add", r"HKCU\Control Panel\Desktop", "/v", "LogPixels", "/t", "REG_DWORD", "/d", &dpi, "/f"],
+    )
+    .await?;
+
+    // 虛擬桌面
+    match &display.virtual_desktop {
+        Some(size) if !size.is_empty() => {
+            run_reg(
+                &app,
+                &bottle_id,
+                &c,
+                &["add", r"HKCU\Software\Wine\Explorer\Desktops", "/v", "Default", "/d", size, "/f"],
+            )
+            .await?;
+            run_reg(
+                &app,
+                &bottle_id,
+                &c,
+                &["add", r"HKCU\Software\Wine\Explorer", "/v", "Desktop", "/d", "Default", "/f"],
+            )
+            .await?;
+        }
+        _ => {
+            let _ = run_reg(
+                &app,
+                &bottle_id,
+                &c,
+                &["delete", r"HKCU\Software\Wine\Explorer", "/v", "Desktop", "/f"],
+            )
+            .await;
+        }
+    }
+
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == bottle_id).ok_or("找不到此 Bottle")?;
+    bottle.display = display;
+    config::save(&app, &config)?;
+    runner::emit_log(&app, &bottle_id, "顯示設定已套用 ✓", "stdout");
+    Ok(())
+}
+
+/// 從 exe 抽出圖示，回傳 PNG 的 data URL；失敗回 None（前端用預設圖示）。
+#[tauri::command]
+pub fn extract_icon(path: String) -> Option<String> {
+    crate::icon::extract_png_data_url(&path)
 }
 
 #[derive(serde::Deserialize)]
