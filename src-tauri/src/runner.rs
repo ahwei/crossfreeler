@@ -26,15 +26,7 @@ pub fn emit_log(app: &AppHandle, bottle_id: &str, line: &str, stream: &str) {
 /// 建立乾淨環境的指令：白名單環境變數 + WINEPREFIX + bottle 自訂值。
 /// cwd 一律設在 prefix 內或呼叫端指定的目錄（避免繼承 app 的 cwd，
 /// 否則自解壓安裝檔會把內容解到 app 工作目錄）。
-pub fn build_command(
-    program: &Path,
-    args: &[String],
-    prefix: &Path,
-    wine_bin_dir: &Path,
-    extra_env: &HashMap<String, String>,
-) -> Command {
-    let mut cmd = Command::new(program);
-    cmd.args(args);
+fn apply_env(cmd: &mut Command, prefix: &Path, wine_bin_dir: &Path, extra_env: &HashMap<String, String>) {
     cmd.current_dir(if prefix.is_dir() { prefix } else { Path::new("/tmp") });
     cmd.env_clear();
     for key in ["HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL"] {
@@ -56,6 +48,52 @@ pub fn build_command(
     cmd.stdin(std::process::Stdio::null());
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
+}
+
+pub fn build_command(
+    program: &Path,
+    args: &[String],
+    prefix: &Path,
+    wine_bin_dir: &Path,
+    extra_env: &HashMap<String, String>,
+) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.args(args);
+    apply_env(&mut cmd, prefix, wine_bin_dir, extra_env);
+    cmd
+}
+
+/// 移除會干擾 shell 的字元，作為 macOS 上顯示的程式名（argv[0]）。
+fn sanitize_app_name(name: &str) -> String {
+    let cleaned: String = name.chars().filter(|c| !matches!(c, '"' | '\'' | '\\' | '\n' | '\0')).collect();
+    let trimmed = cleaned.trim();
+    if trimmed.is_empty() {
+        "App".into()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// 與 build_command 相同，但透過 `exec -a "<app_name>"` 啟動，
+/// 讓 Wine 在 macOS 選單列 / 程式清單顯示遊戲名而非 "wine"。
+pub fn build_named_command(
+    app_name: &str,
+    program: &Path,
+    args: &[String],
+    prefix: &Path,
+    wine_bin_dir: &Path,
+    extra_env: &HashMap<String, String>,
+) -> Command {
+    let name = sanitize_app_name(app_name);
+    // bash -c 'n=$1; p=$2; shift 2; exec -a "$n" "$p" "$@"' bash <name> <program> <args...>
+    let mut cmd = Command::new("/bin/bash");
+    cmd.arg("-c")
+        .arg(r#"n="$1"; p="$2"; shift 2; exec -a "$n" "$p" "$@""#)
+        .arg("bash")
+        .arg(&name)
+        .arg(program);
+    cmd.args(args);
+    apply_env(&mut cmd, prefix, wine_bin_dir, extra_env);
     cmd
 }
 

@@ -236,6 +236,7 @@ pub async fn run_program(
     bottle_id: String,
     exe_path: String,
     args: String,
+    name: Option<String>,
 ) -> Result<u32, String> {
     let c = {
         let config = state.0.lock().unwrap();
@@ -252,8 +253,16 @@ pub async fn run_program(
     // 簡易參數切割（v1 限制：不支援含空白的引號參數）
     wine_args.extend(args.split_whitespace().map(String::from));
 
-    runner::emit_log(&app, &bottle_id, &format!("啟動：{exe_path}"), "stdout");
-    let mut cmd = runner::build_command(&c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
+    // macOS 上顯示的程式名：捷徑名 > exe 檔名
+    let app_name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| {
+        PathBuf::from(&exe_path)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "App".into())
+    });
+
+    runner::emit_log(&app, &bottle_id, &format!("啟動：{app_name}"), "stdout");
+    let mut cmd = runner::build_named_command(&app_name, &c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
     // Windows 程式預期 cwd = 程式所在目錄（自解壓檔也會解到這裡）
     if let Some(parent) = PathBuf::from(&exe_path).parent().filter(|p| p.is_dir()) {
         cmd.current_dir(parent);

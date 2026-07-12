@@ -28,7 +28,7 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
       if (!again) return
     }
     try {
-      const pid = await ipc.runProgram(bottle.id, exePath, args)
+      const pid = await ipc.runProgram(bottle.id, exePath, args, name)
       markStarted(bottle.id, exePath, pid)
     } catch (e) {
       await message(String(e), { kind: 'error' })

@@ -27,8 +27,8 @@ export const ipc = {
   updateBottleEnv: (id: string, env: Record<string, string>) => invoke<void>('update_bottle_env', { id, env }),
   setWindowsVersion: (id: string, version: WindowsVersion) => invoke<void>('set_windows_version', { id, version }),
 
-  runProgram: (bottleId: string, exePath: string, args = '') =>
-    invoke<number>('run_program', { bottleId, exePath, args }),
+  runProgram: (bottleId: string, exePath: string, args = '', name?: string) =>
+    invoke<number>('run_program', { bottleId, exePath, args, name }),
   runWinetricks: (bottleId: string, verbs: string[]) => invoke<void>('run_winetricks', { bottleId, verbs }),
 
   listPrograms: (bottleId: string) => invoke<InstalledProgram[]>('list_programs', { bottleId }),
