@@ -4,11 +4,13 @@ import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
 import { useEnvStore } from '../stores/envStore'
 import { useLogStore } from '../stores/logStore'
-import { CREATE_CHANNEL, type WindowsVersion } from '../lib/types'
+import { CREATE_CHANNEL, type LogLine, type WindowsVersion } from '../lib/types'
 
 type Template = 'app' | 'game'
 
 const GAME_ENV: Record<string, string> = { WINEESYNC: '1', WINEDEBUG: '-all' }
+// Zustand selector 必須回傳穩定 reference，否則會無限重渲染
+const NO_LOGS: LogLine[] = []
 
 export function CreateBottleModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
@@ -17,7 +19,7 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hasStaging = useEnvStore((s) => !!s.status?.staging)
-  const createLogs = useLogStore((s) => s.logs[CREATE_CHANNEL] ?? [])
+  const createLogs = useLogStore((s) => s.logs[CREATE_CHANNEL] ?? NO_LOGS)
   const load = useBottleStore((s) => s.load)
   const select = useBottleStore((s) => s.select)
 
