@@ -62,6 +62,8 @@ export const zh = {
   windowsPrograms: 'Windows 程式',
   saveAsShortcut: '要把這個程式保存為捷徑嗎？',
   confirmDeleteShortcut: (name: string) => `確定刪除捷徑「${name}」？`,
+  runningBadge: '執行中',
+  confirmLaunchAgain: (name: string) => `「${name}」看起來還在執行中。\n確定要再開一個嗎？（遊戲啟動可能需要一段時間，請稍候）`,
   editShortcut: '編輯捷徑',
   newShortcut: '新增捷徑',
   programPath: '程式路徑',

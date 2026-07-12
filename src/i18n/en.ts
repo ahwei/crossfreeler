@@ -64,6 +64,8 @@ export const en: Dict = {
   windowsPrograms: 'Windows programs',
   saveAsShortcut: 'Save this program as a shortcut?',
   confirmDeleteShortcut: (name: string) => `Delete shortcut "${name}"?`,
+  runningBadge: 'Running',
+  confirmLaunchAgain: (name: string) => `"${name}" appears to be running.\nLaunch another instance? (Games can take a while to appear — consider waiting)`,
   editShortcut: 'Edit shortcut',
   newShortcut: 'New shortcut',
   programPath: 'Program path',

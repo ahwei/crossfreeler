@@ -104,7 +104,14 @@ pub async fn run_and_wait(app: &AppHandle, bottle_id: &str, mut cmd: Command) ->
 }
 
 /// 執行但不等待（啟動應用程式／遊戲），結束時發 log 事件。回傳 pid。
-pub fn run_detached(app: &AppHandle, bottle_id: &str, mut cmd: Command) -> Result<u32, String> {
+/// exe_path 是啟動來源（捷徑/程式路徑），會附在 program-exited 事件裡
+/// 讓前端解除該程式的「執行中」狀態；winecfg 這類內建工具傳 None。
+pub fn run_detached(
+    app: &AppHandle,
+    bottle_id: &str,
+    mut cmd: Command,
+    exe_path: Option<String>,
+) -> Result<u32, String> {
     let mut child = cmd.spawn().map_err(|e| format!("無法啟動程序：{e}"))?;
     let pid = child.id().unwrap_or(0);
     pipe_logs(app, bottle_id, &mut child);
@@ -119,8 +126,11 @@ pub fn run_detached(app: &AppHandle, bottle_id: &str, mut cmd: Command) -> Resul
                 "stdout",
             );
         }
-        // 通知前端（例如安裝程式跑完 → 重新整理已安裝清單）
-        let _ = app.emit("program-exited", serde_json::json!({ "bottleId": id }));
+        // 通知前端（解除執行中狀態、重新整理已安裝清單）
+        let _ = app.emit(
+            "program-exited",
+            serde_json::json!({ "bottleId": id, "exePath": exe_path, "pid": pid }),
+        );
     });
     Ok(pid)
 }

@@ -186,7 +186,7 @@ pub async fn run_winecfg(app: AppHandle, state: State<'_, ConfigState>, id: Stri
         ctx(&app, &config, &id)?
     };
     let cmd = runner::build_command(&c.wine, &["winecfg".into()], &c.prefix, &c.wine_bin_dir, &c.env);
-    runner::run_detached(&app, &id, cmd)?;
+    runner::run_detached(&app, &id, cmd, None)?;
     Ok(())
 }
 
@@ -257,7 +257,7 @@ pub async fn run_program(
     if let Some(parent) = PathBuf::from(&exe_path).parent().filter(|p| p.is_dir()) {
         cmd.current_dir(parent);
     }
-    runner::run_detached(&app, &bottle_id, cmd)
+    runner::run_detached(&app, &bottle_id, cmd, Some(exe_path))
 }
 
 #[tauri::command]
@@ -342,7 +342,7 @@ pub async fn uninstall_program(
         &c.wine_bin_dir,
         &c.env,
     );
-    runner::run_detached(&app, &bottle_id, cmd)?;
+    runner::run_detached(&app, &bottle_id, cmd, None)?;
     Ok(())
 }
 
@@ -353,7 +353,7 @@ pub async fn open_uninstaller(app: AppHandle, state: State<'_, ConfigState>, bot
         ctx(&app, &config, &bottle_id)?
     };
     let cmd = runner::build_command(&c.wine, &["uninstaller".into()], &c.prefix, &c.wine_bin_dir, &c.env);
-    runner::run_detached(&app, &bottle_id, cmd)?;
+    runner::run_detached(&app, &bottle_id, cmd, None)?;
     Ok(())
 }
 

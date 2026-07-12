@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { open, ask, message } from '@tauri-apps/plugin-dialog'
 import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
+import { useRunningStore, runningKey } from '../stores/runningStore'
 import { ShortcutModal } from './ShortcutModal'
 import type { Bottle, Shortcut } from '../lib/types'
 import { useT } from '../i18n'
@@ -9,11 +10,23 @@ import { useT } from '../i18n'
 export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
   const t = useT()
   const load = useBottleStore((s) => s.load)
+  const running = useRunningStore((s) => s.running)
+  const markStarted = useRunningStore((s) => s.markStarted)
   const [editing, setEditing] = useState<(Partial<Shortcut> & { exePath: string }) | null>(null)
 
-  const runExe = async (exePath: string, args = '') => {
+  const isRunning = (exePath: string) => runningKey(bottle.id, exePath) in running
+
+  const runExe = async (exePath: string, args = '', name?: string) => {
+    if (isRunning(exePath)) {
+      const again = await ask(t.confirmLaunchAgain(name ?? exePath.split('/').pop() ?? ''), {
+        title: 'CrossFreeler',
+        kind: 'warning',
+      })
+      if (!again) return
+    }
     try {
-      await ipc.runProgram(bottle.id, exePath, args)
+      const pid = await ipc.runProgram(bottle.id, exePath, args)
+      markStarted(bottle.id, exePath, pid)
     } catch (e) {
       await message(String(e), { kind: 'error' })
     }
@@ -70,11 +83,23 @@ export function ShortcutGrid({ bottle }: { bottle: Bottle }) {
           {bottle.shortcuts.map((s) => (
             <div
               key={s.id}
-              className="group cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-indigo-600/60"
-              onClick={() => void runExe(s.exePath, s.args)}
+              className={`group cursor-pointer rounded-xl border p-4 ${
+                isRunning(s.exePath)
+                  ? 'border-emerald-600/60 bg-emerald-950/20'
+                  : 'border-zinc-800 bg-zinc-900 hover:border-indigo-600/60'
+              }`}
+              onClick={() => void runExe(s.exePath, s.args, s.name)}
               title={s.exePath}
             >
-              <div className="mb-1 text-2xl">🎮</div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-2xl">🎮</span>
+                {isRunning(s.exePath) && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-emerald-600/20 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                    {t.runningBadge}
+                  </span>
+                )}
+              </div>
               <p className="truncate font-medium text-zinc-100">{s.name}</p>
               <p className="truncate text-xs text-zinc-600">{s.exePath.split('/').pop()}</p>
               <div className="mt-2 hidden gap-2 group-hover:flex">
