@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 use std::process::Command;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::config::{self, AppConfig};
 use crate::ConfigState;
@@ -31,14 +31,13 @@ fn is_executable(path: &PathBuf) -> bool {
 /// 尋找 CrossOver 系 wine（WhiskyWine / CrossOver.app / CrossFreeler 自帶）。
 /// 這類引擎含商業保護殼（Themida/WinLicense/GameGuard）相容修改。
 fn crossover_wine(app: &AppHandle) -> Option<PathBuf> {
-    let home = config::data_dir(app).ok().and_then(|d| d.parent().map(|p| p.to_path_buf()));
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Ok(data) = config::data_dir(app) {
         // CrossFreeler 未來自帶的 crossover runtime
         candidates.push(data.join("runtime/crossover/bin/wine64"));
         candidates.push(data.join("runtime/crossover/bin/wine"));
     }
-    if let Some(home) = home {
+    if let Ok(home) = app.path().home_dir() {
         // 借用已安裝的 WhiskyWine
         candidates.push(
             home.join("Library/Application Support/com.isaacmarovitz.Whisky/Libraries/Wine/bin/wine64"),

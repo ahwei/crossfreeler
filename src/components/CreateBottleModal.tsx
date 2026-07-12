@@ -7,7 +7,7 @@ import { useLogStore } from '../stores/logStore'
 import { CREATE_CHANNEL, type LogLine, type WindowsVersion } from '../lib/types'
 import { useT } from '../i18n'
 
-type Template = 'app' | 'game'
+type Template = 'app' | 'game' | 'protected'
 type LocaleChoice = 'default' | 'big5' | 'sjis'
 
 const GAME_ENV: Record<string, string> = { WINEESYNC: '1', WINEDEBUG: '-all' }
@@ -23,11 +23,15 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
   const t = useT()
   const [name, setName] = useState('')
   const [version, setVersion] = useState<WindowsVersion>('win10')
-  const [template, setTemplate] = useState<Template>('game')
+  // 偵測到 CrossOver 系引擎時，預設就用它（較穩、可跑保護殼遊戲）
+  const [template, setTemplate] = useState<Template>(() =>
+    useEnvStore.getState().status?.crossover ? 'protected' : 'game',
+  )
   const [locale, setLocale] = useState<LocaleChoice>('default')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hasStaging = useEnvStore((s) => !!s.status?.staging)
+  const hasCrossover = useEnvStore((s) => !!s.status?.crossover)
   const createLogs = useLogStore((s) => s.logs[CREATE_CHANNEL] ?? NO_LOGS)
   const load = useBottleStore((s) => s.load)
   const select = useBottleStore((s) => s.select)
@@ -37,8 +41,13 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
     setBusy(true)
     useLogStore.getState().clear(CREATE_CHANNEL)
     try {
-      const runtime = template === 'game' && hasStaging ? 'staging' : 'stable'
-      const envVars = { ...(template === 'game' ? GAME_ENV : {}), ...LOCALE_ENV[locale] }
+      const runtime =
+        template === 'protected' && hasCrossover
+          ? 'crossover'
+          : template === 'game' && hasStaging
+            ? 'staging'
+            : 'stable'
+      const envVars = { ...(template !== 'app' ? GAME_ENV : {}), ...LOCALE_ENV[locale] }
       const bottle = await ipc.createBottle(name, version, runtime, envVars)
       await load()
       select(bottle.id)
@@ -70,25 +79,32 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-2 gap-2">
             {(
               [
-                { key: 'game', label: t.templateGame, desc: hasStaging ? t.gameStagingDesc : t.gameNoStagingDesc },
-                { key: 'app', label: t.templateApp, desc: t.stableDesc },
+                { key: 'game', label: t.templateGame, desc: hasStaging ? t.gameStagingDesc : t.gameNoStagingDesc, disabled: false },
+                {
+                  key: 'protected',
+                  label: t.templateProtected,
+                  desc: hasCrossover ? t.protectedDesc : t.crossoverMissing,
+                  disabled: !hasCrossover,
+                },
+                { key: 'app', label: t.templateApp, desc: t.stableDesc, disabled: false },
               ] as const
             ).map((tp) => (
               <button
                 key={tp.key}
-                className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                className={`rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-40 ${
                   template === tp.key
                     ? 'border-indigo-500 bg-indigo-600/20 text-indigo-200'
                     : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'
                 }`}
                 onClick={() => setTemplate(tp.key)}
-                disabled={busy}
+                disabled={busy || tp.disabled}
               >
                 <div>{tp.label}</div>
                 <div className="text-xs text-zinc-500">{tp.desc}</div>
               </button>
             ))}
           </div>
+          {template === 'protected' && <p className="mt-1.5 text-xs text-emerald-500/80">{t.protectedHint}</p>}
           {template === 'game' && <p className="mt-1.5 text-xs text-amber-500/80">{t.antiCheatWarning}</p>}
         </div>
 

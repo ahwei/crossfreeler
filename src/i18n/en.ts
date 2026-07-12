@@ -30,7 +30,11 @@ export const en: Dict = {
   namePlaceholder: 'e.g. Stardew Valley',
   template: 'Template',
   templateGame: '🎮 Game',
+  templateProtected: '🛡️ Protected game',
   templateApp: '🧰 Application',
+  protectedDesc: 'CrossOver engine + esync',
+  protectedHint:
+    'For games with Themida/WinLicense/GameGuard protection (e.g. official RO). The prefix is created natively with the CrossOver-based engine for best compatibility.',
   gameStagingDesc: 'staging + esync',
   gameNoStagingDesc: 'esync (no staging build, falls back to stable)',
   stableDesc: 'stable',
