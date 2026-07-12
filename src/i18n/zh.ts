@@ -71,7 +71,7 @@ export const zh = {
   launchArgs: '啟動參數（選填）',
 
   // InstalledPanel
-  installedIntro: '從此 Bottle 的 Windows 解除安裝資訊列出已安裝程式。',
+  installedIntro: '「掃描已安裝程式」自動找出 bottle 內的 .exe 建捷徑；找不到就用「手動選檔」。下方清單來自 Windows 解除安裝登錄（部分遊戲不會登錄，屬正常）。',
   refresh: '重新整理',
   openUninstallerGui: '開啟解除安裝工具（GUI）',
   uninstall: '解除安裝',

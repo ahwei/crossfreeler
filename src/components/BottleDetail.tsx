@@ -9,11 +9,11 @@ import { BottleSettings } from './BottleSettings'
 import type { Bottle } from '../lib/types'
 import { useT } from '../i18n'
 
-type Tab = 'apps' | 'installed' | 'tricks' | 'settings'
+type Tab = 'installed' | 'apps' | 'tricks' | 'settings'
 
 export function BottleDetail({ bottle }: { bottle: Bottle }) {
   const t = useT()
-  const [tab, setTab] = useState<Tab>('apps')
+  const [tab, setTab] = useState<Tab>('installed')
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState(bottle.name)
   const load = useBottleStore((s) => s.load)
@@ -77,8 +77,8 @@ export function BottleDetail({ bottle }: { bottle: Bottle }) {
       <nav className="flex gap-1 border-b border-zinc-800 px-4">
         {(
           [
-            { key: 'apps', label: t.tabApps },
             { key: 'installed', label: t.tabInstalled },
+            { key: 'apps', label: t.tabApps },
             { key: 'tricks', label: t.tabTricks },
             { key: 'settings', label: t.tabSettings },
           ] as const

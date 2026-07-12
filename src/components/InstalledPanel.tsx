@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ask, message } from '@tauri-apps/plugin-dialog'
+import { open, ask, message } from '@tauri-apps/plugin-dialog'
 import { ipc } from '../lib/ipc'
 import { useT } from '../i18n'
 import { useInstalledStore } from '../stores/installedStore'
@@ -12,9 +12,17 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
   const programs = useInstalledStore((s) => s.programs[bottle.id])
   const loading = useInstalledStore((s) => s.loading[bottle.id] ?? false)
   const refresh = useInstalledStore((s) => s.refresh)
-  // 為哪個已安裝程式挑 exe（值 = 程式名稱）
+  // 為哪個已安裝程式挑 exe（值 = 程式名稱；空字串 = 自由掃描）
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   const [shortcutInit, setShortcutInit] = useState<{ exePath: string; name?: string } | null>(null)
+
+  const pickManual = async () => {
+    const picked = await open({
+      title: t.pickProgram,
+      filters: [{ name: t.windowsPrograms, extensions: ['exe', 'bat'] }],
+    })
+    if (typeof picked === 'string') setShortcutInit({ exePath: picked })
+  }
 
   // 首次切到此 tab 自動載入一次（之後靠 program-exited 事件自動刷新）
   if (programs === undefined && !loading) void refresh(bottle.id)
@@ -33,7 +41,19 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
   return (
     <div className="p-4">
       <p className="mb-3 text-sm text-zinc-500">{t.installedIntro}</p>
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          onClick={() => setPickingFor('')}
+        >
+          {t.scanShortcut}
+        </button>
+        <button
+          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500"
+          onClick={() => void pickManual()}
+        >
+          {t.addShortcut}
+        </button>
         <button
           className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
           disabled={loading}
@@ -81,7 +101,7 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
         <ExePickerModal
           bottleId={bottle.id}
           onPick={(exePath) => {
-            setShortcutInit({ exePath, name: pickingFor })
+            setShortcutInit({ exePath, name: pickingFor || undefined })
             setPickingFor(null)
           }}
           onClose={() => setPickingFor(null)}

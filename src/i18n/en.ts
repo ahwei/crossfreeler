@@ -73,7 +73,8 @@ export const en: Dict = {
   launchArgs: 'Launch arguments (optional)',
 
   // InstalledPanel
-  installedIntro: 'Programs listed from this bottle\'s Windows uninstall registry.',
+  installedIntro:
+    '"Scan installed" auto-finds .exe files in the bottle to make shortcuts; use "Pick file" if it can\'t. The list below comes from the Windows uninstall registry (some games don\'t register — that\'s normal).',
   refresh: 'Refresh',
   openUninstallerGui: 'Open uninstaller (GUI)',
   uninstall: 'Uninstall',
