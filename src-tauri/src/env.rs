@@ -37,16 +37,18 @@ fn crossover_wine(app: &AppHandle) -> Option<PathBuf> {
         candidates.push(data.join("runtime/crossover/bin/wine64"));
         candidates.push(data.join("runtime/crossover/bin/wine"));
     }
+    // 真正的 CrossOver.app（版本最新、相容性最好，優先於 WhiskyWine）
+    const CX_WINE: &str = "Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine";
     if let Ok(home) = app.path().home_dir() {
-        // 借用已安裝的 WhiskyWine
+        candidates.push(home.join(CX_WINE));
+    }
+    candidates.push(PathBuf::from("/").join(CX_WINE));
+    if let Ok(home) = app.path().home_dir() {
+        // 借用已安裝的 WhiskyWine（CrossOver 22 fork，較舊）
         candidates.push(
             home.join("Library/Application Support/com.isaacmarovitz.Whisky/Libraries/Wine/bin/wine64"),
         );
     }
-    // CrossOver.app 內建 wine
-    candidates.push(PathBuf::from(
-        "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine",
-    ));
     candidates.into_iter().find(is_executable)
 }
 
