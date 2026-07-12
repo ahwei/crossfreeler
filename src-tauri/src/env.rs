@@ -19,11 +19,36 @@ pub struct EnvStatus {
     pub rosetta: bool,
     pub wine: Option<WineInfo>,
     pub staging: Option<WineInfo>,
+    /// CrossOver 系引擎（WhiskyWine / CrossOver / GPTK）— 能跑 Themida/WinLicense 保護的遊戲
+    pub crossover: Option<WineInfo>,
     pub winetricks: Option<String>,
 }
 
 fn is_executable(path: &PathBuf) -> bool {
     path.is_file()
+}
+
+/// 尋找 CrossOver 系 wine（WhiskyWine / CrossOver.app / CrossFreeler 自帶）。
+/// 這類引擎含商業保護殼（Themida/WinLicense/GameGuard）相容修改。
+fn crossover_wine(app: &AppHandle) -> Option<PathBuf> {
+    let home = config::data_dir(app).ok().and_then(|d| d.parent().map(|p| p.to_path_buf()));
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(data) = config::data_dir(app) {
+        // CrossFreeler 未來自帶的 crossover runtime
+        candidates.push(data.join("runtime/crossover/bin/wine64"));
+        candidates.push(data.join("runtime/crossover/bin/wine"));
+    }
+    if let Some(home) = home {
+        // 借用已安裝的 WhiskyWine
+        candidates.push(
+            home.join("Library/Application Support/com.isaacmarovitz.Whisky/Libraries/Wine/bin/wine64"),
+        );
+    }
+    // CrossOver.app 內建 wine
+    candidates.push(PathBuf::from(
+        "/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/wine",
+    ));
+    candidates.into_iter().find(is_executable)
 }
 
 /// 尋找 staging runtime 目錄（runtime/wine-staging-*）
@@ -75,6 +100,12 @@ pub fn resolve_wine(app: &AppHandle, config: &AppConfig, runtime: &str) -> Optio
             return Some(p);
         }
     }
+    if runtime == "crossover" {
+        if let Some(p) = crossover_wine(app) {
+            return Some(p);
+        }
+        // 找不到 CrossOver 系引擎時退回 stable
+    }
     if runtime == "staging" {
         if let Some(p) = staging_wine(app) {
             return Some(p);
@@ -118,11 +149,15 @@ pub fn detect_environment(app: AppHandle, state: State<'_, ConfigState>) -> Resu
     let staging = staging_wine(&app).and_then(|p| {
         wine_version(&p).map(|version| WineInfo { path: p.display().to_string(), version })
     });
+    let crossover = crossover_wine(&app).and_then(|p| {
+        wine_version(&p).map(|version| WineInfo { path: p.display().to_string(), version })
+    });
 
     Ok(EnvStatus {
         rosetta: rosetta_installed(),
         wine,
         staging,
+        crossover,
         winetricks: find_winetricks(),
     })
 }

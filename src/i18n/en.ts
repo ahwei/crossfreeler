@@ -117,6 +117,12 @@ export const en: Dict = {
   runtimeLabel: 'Runtime: ',
   runtimeStaging: 'Wine Staging ⚡ (gaming)',
   runtimeStable: 'Wine Stable',
+  runtimeCrossover: 'CrossOver-based engine 🛡️ (protected games)',
+  crossoverMissing: ' (not detected — install Whisky/CrossOver)',
+  crossoverFallback: 'No CrossOver-based engine found; falling back to Wine Stable. Install Whisky or CrossOver.',
+  engineSection: 'Wine engine',
+  engineHint:
+    'Staging is fine for most games; titles with Themida/WinLicense/GameGuard protection (e.g. official RO) need a CrossOver-based engine to run.',
   presetEsync: 'esync (game performance)',
   presetNoDebug: 'Disable debug log',
   presetMtlHud: 'Metal FPS HUD',

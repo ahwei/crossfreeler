@@ -31,6 +31,7 @@ pub fn run() {
             bottle::run_winecfg,
             bottle::kill_bottle,
             bottle::update_bottle_env,
+            bottle::set_runtime,
             bottle::set_windows_version,
             bottle::run_program,
             bottle::run_winetricks,

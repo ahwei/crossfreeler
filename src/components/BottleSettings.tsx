@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ask, message } from '@tauri-apps/plugin-dialog'
 import { ipc } from '../lib/ipc'
 import { useBottleStore } from '../stores/bottleStore'
-import type { Bottle, WindowsVersion } from '../lib/types'
+import { useEnvStore } from '../stores/envStore'
+import type { Bottle, RuntimeChannel, WindowsVersion } from '../lib/types'
 import { useT } from '../i18n'
 
 const DPI_OPTIONS = [96, 120, 144, 192]
@@ -19,6 +20,16 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
   const [retina, setRetina] = useState(bottle.display.retina)
   const [dpi, setDpi] = useState(bottle.display.dpi)
   const [vd, setVd] = useState(bottle.display.virtualDesktop ?? '')
+  const env = useEnvStore((s) => s.status)
+
+  const changeRuntime = async (runtime: RuntimeChannel) => {
+    try {
+      await ipc.setRuntime(bottle.id, runtime)
+      await load()
+    } catch (e) {
+      await message(String(e), { kind: 'error' })
+    }
+  }
 
   const installFonts = async () => {
     setFontsBusy(true)
@@ -104,10 +115,26 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
           <option value="win10">Windows 10</option>
           <option value="win7">Windows 7</option>
         </select>
-        <span className="ml-3 text-sm text-zinc-500">
-          {t.runtimeLabel}
-          {bottle.runtime === 'staging' ? t.runtimeStaging : t.runtimeStable}
-        </span>
+      </section>
+
+      <section>
+        <h3 className="mb-1 font-medium text-zinc-200">{t.engineSection}</h3>
+        <p className="mb-2 text-xs text-zinc-600">{t.engineHint}</p>
+        <select
+          className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+          value={bottle.runtime}
+          onChange={(e) => void changeRuntime(e.target.value as RuntimeChannel)}
+        >
+          <option value="stable">{t.runtimeStable}</option>
+          <option value="staging">{t.runtimeStaging}</option>
+          <option value="crossover" disabled={!env?.crossover}>
+            {t.runtimeCrossover}
+            {env?.crossover ? ` (${env.crossover.version})` : t.crossoverMissing}
+          </option>
+        </select>
+        {bottle.runtime === 'crossover' && !env?.crossover && (
+          <p className="mt-1.5 text-xs text-amber-500/80">{t.crossoverFallback}</p>
+        )}
       </section>
 
       <section>

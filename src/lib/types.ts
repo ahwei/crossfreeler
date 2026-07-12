@@ -1,5 +1,5 @@
 export type WindowsVersion = 'win11' | 'win10' | 'win7'
-export type RuntimeChannel = 'stable' | 'staging'
+export type RuntimeChannel = 'stable' | 'staging' | 'crossover'
 
 export interface Shortcut {
   id: string
@@ -40,6 +40,7 @@ export interface EnvStatus {
   rosetta: boolean
   wine: WineInfo | null
   staging: WineInfo | null
+  crossover: WineInfo | null
   winetricks: string | null
 }
 

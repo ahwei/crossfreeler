@@ -192,6 +192,19 @@ pub async fn run_winecfg(app: AppHandle, state: State<'_, ConfigState>, id: Stri
 }
 
 #[tauri::command]
+pub fn set_runtime(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    id: String,
+    runtime: String,
+) -> Result<(), String> {
+    let mut config = state.0.lock().unwrap();
+    let bottle = config.bottles.iter_mut().find(|b| b.id == id).ok_or("找不到此 Bottle")?;
+    bottle.runtime = runtime;
+    config::save(&app, &config)
+}
+
+#[tauri::command]
 pub fn update_bottle_env(
     app: AppHandle,
     state: State<'_, ConfigState>,

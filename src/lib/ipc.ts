@@ -25,6 +25,7 @@ export const ipc = {
   runWinecfg: (id: string) => invoke<void>('run_winecfg', { id }),
   killBottle: (id: string) => invoke<void>('kill_bottle', { id }),
   updateBottleEnv: (id: string, env: Record<string, string>) => invoke<void>('update_bottle_env', { id, env }),
+  setRuntime: (id: string, runtime: RuntimeChannel) => invoke<void>('set_runtime', { id, runtime }),
   setWindowsVersion: (id: string, version: WindowsVersion) => invoke<void>('set_windows_version', { id, version }),
 
   runProgram: (bottleId: string, exePath: string, args = '', name?: string) =>
