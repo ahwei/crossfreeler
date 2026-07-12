@@ -266,16 +266,17 @@ pub async fn run_program(
     // 簡易參數切割（v1 限制：不支援含空白的引號參數）
     wine_args.extend(args.split_whitespace().map(String::from));
 
-    // macOS 上顯示的程式名：捷徑名 > exe 檔名
-    let app_name = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| {
+    // 顯示用名稱（僅用於 log；不可用 exec -a 改 argv[0]，會破壞 Wine 自我定位、
+    // 尤其是 WhiskyWine/CrossOver 系引擎會直接啟動失敗。app 名稱之後用 .app 包裝處理）
+    let label = name.filter(|n| !n.trim().is_empty()).unwrap_or_else(|| {
         PathBuf::from(&exe_path)
             .file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "App".into())
     });
 
-    runner::emit_log(&app, &bottle_id, &format!("啟動：{app_name}"), "stdout");
-    let mut cmd = runner::build_named_command(&app_name, &c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
+    runner::emit_log(&app, &bottle_id, &format!("啟動：{label}"), "stdout");
+    let mut cmd = runner::build_command(&c.wine, &wine_args, &c.prefix, &c.wine_bin_dir, &c.env);
     // Windows 程式預期 cwd = 程式所在目錄（自解壓檔也會解到這裡）
     if let Some(parent) = PathBuf::from(&exe_path).parent().filter(|p| p.is_dir()) {
         cmd.current_dir(parent);

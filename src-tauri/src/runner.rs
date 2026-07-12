@@ -74,8 +74,10 @@ fn sanitize_app_name(name: &str) -> String {
     }
 }
 
-/// 與 build_command 相同，但透過 `exec -a "<app_name>"` 啟動，
-/// 讓 Wine 在 macOS 選單列 / 程式清單顯示遊戲名而非 "wine"。
+/// 與 build_command 相同，但透過 `exec -a "<app_name>"` 啟動。
+/// 注意：改 argv[0] 會破壞部分 Wine 引擎（WhiskyWine/CrossOver）的自我定位，
+/// 目前未使用；正確做法是 .app 包裝。保留供未來參考。
+#[allow(dead_code)]
 pub fn build_named_command(
     app_name: &str,
     program: &Path,
