@@ -9,6 +9,13 @@ export const en: Dict = {
   bottles: 'Bottles',
   noBottles: 'No bottles yet. Create one below.',
   createBottleBtn: '＋ New Bottle',
+  importBottleBtn: '⬇ Import existing bottle',
+  importTitle: 'Import a Whisky / CrossOver bottle',
+  importHint:
+    'Shares the existing prefix in place (no copy, no move). Deleting an imported bottle in CrossFreeler only unlinks it — original files are untouched.',
+  noExternalBottles: 'No Whisky or CrossOver bottles found.',
+  importBtn: 'Import',
+  alreadyImported: 'Imported',
   wineNotDetected: 'Wine not detected',
 
   // SetupGuide

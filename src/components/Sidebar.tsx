@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useBottleStore } from '../stores/bottleStore'
 import { useEnvStore } from '../stores/envStore'
 import { CreateBottleModal } from './CreateBottleModal'
+import { ImportBottleModal } from './ImportBottleModal'
 import { useI18nStore, useT } from '../i18n'
 
 export function Sidebar() {
@@ -10,6 +11,7 @@ export function Sidebar() {
   const { bottles, selectedId, select } = useBottleStore()
   const status = useEnvStore((s) => s.status)
   const [creating, setCreating] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
@@ -47,10 +49,16 @@ export function Sidebar() {
 
       <div className="border-t border-zinc-800 p-3">
         <button
-          className="mb-2 w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+          className="mb-1.5 w-full rounded-lg bg-indigo-600 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           onClick={() => setCreating(true)}
         >
           {t.createBottleBtn}
+        </button>
+        <button
+          className="mb-2 w-full rounded-lg border border-zinc-700 py-1.5 text-xs text-zinc-300 hover:border-zinc-500"
+          onClick={() => setImporting(true)}
+        >
+          {t.importBottleBtn}
         </button>
         <p className="truncate px-1 text-[11px] text-zinc-600" title={status?.wine?.path}>
           {status?.wine ? status.wine.version : t.wineNotDetected}
@@ -59,6 +67,7 @@ export function Sidebar() {
       </div>
 
       {creating && <CreateBottleModal onClose={() => setCreating(false)} />}
+      {importing && <ImportBottleModal onClose={() => setImporting(false)} />}
     </aside>
   )
 }

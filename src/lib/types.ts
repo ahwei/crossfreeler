@@ -23,6 +23,14 @@ export interface Bottle {
   envVars: Record<string, string>
   shortcuts: Shortcut[]
   display: DisplaySettings
+  /** 外部 prefix（匯入 Whisky/CrossOver bottle）；null = CrossFreeler 自有 */
+  prefixPath: string | null
+}
+
+export interface ExternalBottle {
+  name: string
+  prefixPath: string
+  source: 'whisky' | 'crossover'
 }
 
 export interface AppConfig {

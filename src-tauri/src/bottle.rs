@@ -17,6 +17,14 @@ struct BottleCtx {
     env: HashMap<String, String>,
 }
 
+/// 解析 bottle 的 WINEPREFIX 路徑：外部匯入用其 prefix_path，否則用自家 bottles/<id>。
+fn prefix_for(app: &AppHandle, bottle: &Bottle) -> Result<PathBuf, String> {
+    match &bottle.prefix_path {
+        Some(p) if !p.is_empty() => Ok(PathBuf::from(p)),
+        _ => Ok(config::bottles_dir(app)?.join(&bottle.id)),
+    }
+}
+
 fn ctx(app: &AppHandle, config: &AppConfig, bottle_id: &str) -> Result<BottleCtx, String> {
     let bottle = config
         .bottles
@@ -29,7 +37,7 @@ fn ctx(app: &AppHandle, config: &AppConfig, bottle_id: &str) -> Result<BottleCtx
         .parent()
         .ok_or_else(|| "Wine 路徑異常".to_string())?
         .to_path_buf();
-    let prefix = config::bottles_dir(app)?.join(&bottle.id);
+    let prefix = prefix_for(app, bottle)?;
     Ok(BottleCtx {
         prefix,
         wine,
@@ -110,6 +118,7 @@ pub async fn create_bottle(
         env_vars,
         shortcuts: Vec::new(),
         display: DisplaySettings::default(),
+        prefix_path: None,
     };
     {
         let mut config = state.0.lock().unwrap();
@@ -156,9 +165,22 @@ pub async fn delete_bottle(app: AppHandle, state: State<'_, ConfigState>, id: St
     // 先關掉該 prefix 的所有 wine 程序（失敗不阻擋刪除）
     let _ = kill_bottle(app.clone(), state.clone(), id.clone()).await;
 
-    let prefix = config::bottles_dir(&app)?.join(&id);
-    if prefix.exists() {
-        std::fs::remove_dir_all(&prefix).map_err(|e| format!("刪除 Bottle 目錄失敗：{e}"))?;
+    // 外部匯入的 bottle：只解除掛載，不刪對方（Whisky/CrossOver）的目錄
+    let is_external = {
+        let config = state.0.lock().unwrap();
+        config
+            .bottles
+            .iter()
+            .find(|b| b.id == id)
+            .and_then(|b| b.prefix_path.clone())
+            .map(|p| !p.is_empty())
+            .unwrap_or(false)
+    };
+    if !is_external {
+        let prefix = config::bottles_dir(&app)?.join(&id);
+        if prefix.exists() {
+            std::fs::remove_dir_all(&prefix).map_err(|e| format!("刪除 Bottle 目錄失敗：{e}"))?;
+        }
     }
     let mut config = state.0.lock().unwrap();
     config.bottles.retain(|b| b.id != id);
@@ -428,6 +450,115 @@ pub fn list_exes(app: AppHandle, state: State<'_, ConfigState>, bottle_id: Strin
     }
     out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     Ok(out)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalBottle {
+    pub name: String,
+    pub prefix_path: String,
+    /// "whisky" | "crossover"
+    pub source: String,
+}
+
+/// 讀 Whisky 的 Metadata.plist 取 bottle 名稱（用 macOS 內建 plutil）
+fn whisky_bottle_name(dir: &std::path::Path) -> Option<String> {
+    let plist = dir.join("Metadata.plist");
+    if !plist.is_file() {
+        return None;
+    }
+    let out = std::process::Command::new("/usr/bin/plutil")
+        .args(["-extract", "info.name", "raw", "-o", "-"])
+        .arg(&plist)
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (!name.is_empty()).then_some(name)
+}
+
+/// 掃描機器上 Whisky / CrossOver 既有的 bottle，供匯入共用。
+#[tauri::command]
+pub fn discover_external_bottles(app: AppHandle) -> Result<Vec<ExternalBottle>, String> {
+    use tauri::Manager;
+    let home = app.path().home_dir().map_err(|e| e.to_string())?;
+    let mut found = Vec::new();
+
+    // Whisky：~/Library/Containers/com.isaacmarovitz.Whisky/Bottles/<uuid>/
+    let whisky = home.join("Library/Containers/com.isaacmarovitz.Whisky/Bottles");
+    if let Ok(entries) = std::fs::read_dir(&whisky) {
+        for e in entries.flatten() {
+            let dir = e.path();
+            if dir.join("drive_c").is_dir() {
+                let name = whisky_bottle_name(&dir)
+                    .unwrap_or_else(|| dir.file_name().unwrap_or_default().to_string_lossy().to_string());
+                found.push(ExternalBottle {
+                    name,
+                    prefix_path: dir.display().to_string(),
+                    source: "whisky".into(),
+                });
+            }
+        }
+    }
+
+    // CrossOver：~/Library/Application Support/CrossOver/Bottles/<名稱>/
+    let cx = home.join("Library/Application Support/CrossOver/Bottles");
+    if let Ok(entries) = std::fs::read_dir(&cx) {
+        for e in entries.flatten() {
+            let dir = e.path();
+            if dir.join("drive_c").is_dir() {
+                found.push(ExternalBottle {
+                    name: dir.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                    prefix_path: dir.display().to_string(),
+                    source: "crossover".into(),
+                });
+            }
+        }
+    }
+    Ok(found)
+}
+
+/// 匯入外部 bottle（共用其 WINEPREFIX，不複製、不搬移；刪除時只解除掛載）。
+#[tauri::command]
+pub fn import_bottle(
+    app: AppHandle,
+    state: State<'_, ConfigState>,
+    name: String,
+    prefix_path: String,
+) -> Result<Bottle, String> {
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err("名稱不可為空".into());
+    }
+    if !PathBuf::from(&prefix_path).join("drive_c").is_dir() {
+        return Err("這個路徑不是有效的 Wine prefix（找不到 drive_c）".into());
+    }
+    let mut config = state.0.lock().unwrap();
+    if config.bottles.iter().any(|b| b.prefix_path.as_deref() == Some(prefix_path.as_str())) {
+        return Err("這個 bottle 已經匯入過了".into());
+    }
+    let final_name = if config.bottles.iter().any(|b| b.name == name) {
+        format!("{name}（匯入）")
+    } else {
+        name
+    };
+    let bottle = Bottle {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: final_name,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        windows_version: "win10".into(),
+        // 外部 bottle 都是 CrossOver 系工具建的，用同系引擎跑最相容
+        runtime: "crossover".into(),
+        env_vars: HashMap::new(),
+        shortcuts: Vec::new(),
+        display: DisplaySettings::default(),
+        prefix_path: Some(prefix_path),
+    };
+    config.bottles.push(bottle.clone());
+    config::save(&app, &config)?;
+    Ok(bottle)
 }
 
 /// 回傳 bottle 的 drive_c 絕對路徑（供前端 file dialog 當預設目錄）

@@ -40,6 +40,8 @@ pub fn run() {
             bottle::open_uninstaller,
             bottle::list_exes,
             bottle::drive_c_path,
+            bottle::discover_external_bottles,
+            bottle::import_bottle,
             bottle::install_fonts,
             bottle::set_display,
             bottle::extract_icon,

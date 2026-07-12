@@ -29,6 +29,10 @@ pub struct Bottle {
     pub shortcuts: Vec<Shortcut>,
     #[serde(default)]
     pub display: DisplaySettings,
+    /// 外部 WINEPREFIX 路徑（匯入 Whisky/CrossOver bottle 時使用）。
+    /// None = CrossFreeler 自己的 bottles/<id> 目錄。
+    #[serde(default)]
+    pub prefix_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

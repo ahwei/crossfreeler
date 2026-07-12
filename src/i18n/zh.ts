@@ -7,6 +7,12 @@ export const zh = {
   bottles: 'Bottles',
   noBottles: '還沒有 Bottle，點下方按鈕建立。',
   createBottleBtn: '＋ 建立 Bottle',
+  importBottleBtn: '⬇ 匯入既有 Bottle',
+  importTitle: '匯入 Whisky / CrossOver 的 Bottle',
+  importHint: '直接共用既有 prefix（不複製、不搬移）。在 CrossFreeler 刪除匯入的 bottle 只會解除掛載，不會動到原本的檔案。',
+  noExternalBottles: '沒有找到 Whisky 或 CrossOver 的 bottle。',
+  importBtn: '匯入',
+  alreadyImported: '已匯入',
   wineNotDetected: 'Wine 未偵測到',
 
   // SetupGuide
