@@ -353,6 +353,55 @@ pub async fn open_uninstaller(app: AppHandle, state: State<'_, ConfigState>, bot
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExeEntry {
+    pub name: String,
+    pub path: String,
+}
+
+const EXE_BLOCKLIST: &[&str] = &[
+    "unins", "uninst", "setup", "install", "vcredist", "vc_redist", "dxsetup", "dxwebsetup",
+    "crashreport", "crashhandler", "updater", "patcher_hash",
+];
+
+fn walk_exes(dir: &std::path::Path, depth: u32, out: &mut Vec<ExeEntry>) {
+    if depth == 0 || out.len() >= 500 {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            walk_exes(&path, depth - 1, out);
+        } else if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            let lower = name.to_lowercase();
+            if lower.ends_with(".exe") && !EXE_BLOCKLIST.iter().any(|b| lower.contains(b)) {
+                out.push(ExeEntry {
+                    name: name.to_string(),
+                    path: path.display().to_string(),
+                });
+            }
+        }
+    }
+}
+
+/// 掃描 bottle 的 Program Files 目錄找可執行檔（供「從已安裝建立捷徑」用）
+#[tauri::command]
+pub fn list_exes(app: AppHandle, state: State<'_, ConfigState>, bottle_id: String) -> Result<Vec<ExeEntry>, String> {
+    let c = {
+        let config = state.0.lock().unwrap();
+        ctx(&app, &config, &bottle_id)?
+    };
+    let drive_c = c.prefix.join("drive_c");
+    let mut out = Vec::new();
+    for dir in ["Program Files", "Program Files (x86)"] {
+        walk_exes(&drive_c.join(dir), 4, &mut out);
+    }
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
+}
+
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShortcutInput {

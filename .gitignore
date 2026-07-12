@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 大型二進位檔（安裝檔等）不進版控
+*.exe
+*.bin
+*.dmg
+*.msi

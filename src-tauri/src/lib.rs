@@ -36,6 +36,7 @@ pub fn run() {
             bottle::list_programs,
             bottle::uninstall_program,
             bottle::open_uninstaller,
+            bottle::list_exes,
             bottle::add_shortcut,
             bottle::update_shortcut,
             bottle::remove_shortcut

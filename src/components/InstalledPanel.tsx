@@ -2,26 +2,22 @@ import { useState } from 'react'
 import { ask, message } from '@tauri-apps/plugin-dialog'
 import { ipc } from '../lib/ipc'
 import { useT } from '../i18n'
+import { useInstalledStore } from '../stores/installedStore'
+import { ExePickerModal } from './ExePickerModal'
+import { ShortcutModal } from './ShortcutModal'
 import type { Bottle, InstalledProgram } from '../lib/types'
 
 export function InstalledPanel({ bottle }: { bottle: Bottle }) {
   const t = useT()
-  const [programs, setPrograms] = useState<InstalledProgram[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const programs = useInstalledStore((s) => s.programs[bottle.id])
+  const loading = useInstalledStore((s) => s.loading[bottle.id] ?? false)
+  const refresh = useInstalledStore((s) => s.refresh)
+  // 為哪個已安裝程式挑 exe（值 = 程式名稱）
+  const [pickingFor, setPickingFor] = useState<string | null>(null)
+  const [shortcutInit, setShortcutInit] = useState<{ exePath: string; name?: string } | null>(null)
 
-  const refresh = async () => {
-    setLoading(true)
-    try {
-      setPrograms(await ipc.listPrograms(bottle.id))
-    } catch (e) {
-      await message(String(e), { kind: 'error' })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 首次切到此 tab 自動載入一次（render 期間觸發、以 state 防重入）
-  if (programs === null && !loading) void refresh()
+  // 首次切到此 tab 自動載入一次（之後靠 program-exited 事件自動刷新）
+  if (programs === undefined && !loading) void refresh(bottle.id)
 
   const uninstall = async (p: InstalledProgram) => {
     const yes = await ask(t.confirmUninstall(p.name), { title: 'CrossFreeler', kind: 'warning' })
@@ -41,7 +37,7 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
         <button
           className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
           disabled={loading}
-          onClick={() => void refresh()}
+          onClick={() => void refresh(bottle.id)}
         >
           {loading ? t.loading : t.refresh}
         </button>
@@ -53,17 +49,23 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
         </button>
       </div>
 
-      {programs !== null && programs.length === 0 && (
+      {programs !== undefined && programs.length === 0 && (
         <p className="py-8 text-center text-sm text-zinc-600">{t.noPrograms}</p>
       )}
 
-      {programs !== null && programs.length > 0 && (
+      {programs !== undefined && programs.length > 0 && (
         <div className="divide-y divide-zinc-800 rounded-xl border border-zinc-800">
           {programs.map((p) => (
             <div key={p.key} className="flex items-center gap-3 px-4 py-2.5">
               <span className="flex-1 truncate text-sm text-zinc-200" title={p.key}>
                 {p.name}
               </span>
+              <button
+                className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-indigo-300 hover:border-indigo-500"
+                onClick={() => setPickingFor(p.name)}
+              >
+                {t.createShortcutBtn}
+              </button>
               <button
                 className="rounded-lg border border-zinc-700 px-3 py-1 text-xs text-red-400 hover:border-red-600"
                 onClick={() => void uninstall(p)}
@@ -73,6 +75,20 @@ export function InstalledPanel({ bottle }: { bottle: Bottle }) {
             </div>
           ))}
         </div>
+      )}
+
+      {pickingFor !== null && (
+        <ExePickerModal
+          bottleId={bottle.id}
+          onPick={(exePath) => {
+            setShortcutInit({ exePath, name: pickingFor })
+            setPickingFor(null)
+          }}
+          onClose={() => setPickingFor(null)}
+        />
+      )}
+      {shortcutInit && (
+        <ShortcutModal bottleId={bottle.id} initial={shortcutInit} onClose={() => setShortcutInit(null)} />
       )}
     </div>
   )

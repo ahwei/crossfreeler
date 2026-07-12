@@ -8,8 +8,14 @@ import { CREATE_CHANNEL, type LogLine, type WindowsVersion } from '../lib/types'
 import { useT } from '../i18n'
 
 type Template = 'app' | 'game'
+type LocaleChoice = 'default' | 'big5' | 'sjis'
 
 const GAME_ENV: Record<string, string> = { WINEESYNC: '1', WINEDEBUG: '-all' }
+const LOCALE_ENV: Record<LocaleChoice, Record<string, string>> = {
+  default: {},
+  big5: { LC_ALL: 'zh_TW.Big5' },
+  sjis: { LC_ALL: 'ja_JP.SJIS' },
+}
 // Zustand selector 必須回傳穩定 reference，否則會無限重渲染
 const NO_LOGS: LogLine[] = []
 
@@ -18,6 +24,7 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState('')
   const [version, setVersion] = useState<WindowsVersion>('win10')
   const [template, setTemplate] = useState<Template>('game')
+  const [locale, setLocale] = useState<LocaleChoice>('default')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const hasStaging = useEnvStore((s) => !!s.status?.staging)
@@ -31,7 +38,7 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
     useLogStore.getState().clear(CREATE_CHANNEL)
     try {
       const runtime = template === 'game' && hasStaging ? 'staging' : 'stable'
-      const envVars = template === 'game' ? GAME_ENV : {}
+      const envVars = { ...(template === 'game' ? GAME_ENV : {}), ...LOCALE_ENV[locale] }
       const bottle = await ipc.createBottle(name, version, runtime, envVars)
       await load()
       select(bottle.id)
@@ -97,6 +104,21 @@ export function CreateBottleModal({ onClose }: { onClose: () => void }) {
             <option value="win10">{t.win10Recommended}</option>
             <option value="win7">Windows 7</option>
           </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">{t.localeLabel}</label>
+          <select
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as LocaleChoice)}
+            disabled={busy}
+          >
+            <option value="default">{t.localeDefault}</option>
+            <option value="big5">{t.localeBig5}</option>
+            <option value="sjis">{t.localeSJIS}</option>
+          </select>
+          <p className="mt-1 text-xs text-zinc-600">{t.localeHint}</p>
         </div>
 
         {busy && (

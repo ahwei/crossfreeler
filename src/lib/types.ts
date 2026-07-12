@@ -41,6 +41,11 @@ export interface InstalledProgram {
   name: string
 }
 
+export interface ExeEntry {
+  name: string
+  path: string
+}
+
 export interface LogLine {
   bottleId: string
   line: string

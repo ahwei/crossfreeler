@@ -16,6 +16,7 @@ export function BottleSettings({ bottle }: { bottle: Bottle }) {
     { label: t.presetEsync, key: 'WINEESYNC', value: '1' },
     { label: t.presetNoDebug, key: 'WINEDEBUG', value: '-all' },
     { label: t.presetMtlHud, key: 'MTL_HUD_ENABLED', value: '1' },
+    { label: t.presetBig5, key: 'LC_ALL', value: 'zh_TW.Big5' },
     { label: t.presetLocale, key: 'LC_ALL', value: 'zh_TW.UTF-8' },
   ]
 

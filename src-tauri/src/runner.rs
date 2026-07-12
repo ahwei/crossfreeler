@@ -116,6 +116,8 @@ pub fn run_detached(app: &AppHandle, bottle_id: &str, mut cmd: Command) -> Resul
                 "stdout",
             );
         }
+        // 通知前端（例如安裝程式跑完 → 重新整理已安裝清單）
+        let _ = app.emit("program-exited", serde_json::json!({ "bottleId": id }));
     });
     Ok(pid)
 }
