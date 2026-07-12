@@ -1,0 +1,15 @@
+# Node
+node_modules/
+dist/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# macOS
+.DS_Store
+
+# Env / local
+.env
+.env.local
+*.log

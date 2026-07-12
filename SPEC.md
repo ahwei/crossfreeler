@@ -1,0 +1,249 @@
+# CrossFreeler — 規格書（SPEC）
+
+macOS 上類 CrossOver 的 Wine 圖形化前端：管理多個 Wine prefix（稱為「Bottle」）、安裝並執行 Windows x64 軟體，不需安裝完整 Windows。
+
+> 本文件是給執行實作的 agent 看的完整規格。請依照「Milestones」章節的順序實作，每個 milestone 完成後 commit 一次。
+
+---
+
+## 1. 目標與非目標
+
+### 目標
+- 提供 GUI 管理 Wine bottles（建立、設定、刪除）。
+- 在指定 bottle 內執行任意 `.exe` / `.msi`（安裝程式或應用程式）。
+- 為每個 bottle 保存常用程式捷徑，一鍵啟動。
+- 整合 winetricks 安裝常見執行環境（corefonts、vcrun2022、dotnet48 等）。
+- 即時顯示 Wine 輸出 log，方便除錯。
+
+### 非目標
+- 不自行打包／散布 Wine 本體（依賴使用者以 Homebrew 安裝 `wine-stable`）。
+- 不做 Windows 虛擬機、不整合 DXVK/遊戲專用優化（可留待未來版本）。
+- 不支援 Intel Mac 以外的特殊處理——目標平台是 **Apple Silicon + Rosetta 2**（Intel Mac 理論上也能跑，但不特別測試）。
+
+---
+
+## 2. 技術棧
+
+| 層 | 技術 | 版本 |
+|---|---|---|
+| Desktop shell | Tauri | 2.x |
+| 前端框架 | React + TypeScript | React 18+ |
+| Build tool | Vite | 最新 stable |
+| 樣式 | Tailwind CSS | 4.x |
+| 前端狀態 | Zustand | 最新 |
+| 後端 | Rust（Tauri commands） | stable toolchain |
+
+腳手架指令：`npm create tauri-app@latest -- --template react-ts`（之後補上 Tailwind、Zustand）。
+
+---
+
+## 3. 執行環境需求（runtime prerequisites）
+
+App 啟動時必須偵測以下項目，缺少時在 UI 顯示導引（不是 crash）：
+
+1. **Rosetta 2**：`/usr/bin/pgrep -q oahd` 判斷。缺少時提示執行 `softwareupdate --install-rosetta --agree-to-license`。
+2. **Wine**：依序搜尋以下路徑，找到第一個可用的：
+   - `/opt/homebrew/bin/wine`
+   - `/usr/local/bin/wine`
+   - `/Applications/Wine Stable.app/Contents/Resources/wine/bin/wine`
+   - `$PATH` 上的 `wine`
+   找到後執行 `wine --version` 取得版本字串顯示於 UI。缺少時提示 `brew install --cask wine-stable`。
+3. **winetricks**（選用功能）：搜尋 `$PATH` 與 `/opt/homebrew/bin/winetricks`。缺少時 Winetricks 頁面顯示 `brew install winetricks` 導引，其餘功能不受影響。
+
+---
+
+## 4. 核心概念：Bottle
+
+一個 Bottle = 一個獨立的 `WINEPREFIX`（獨立的模擬 C 槽、registry、已安裝軟體）。
+
+### 資料儲存位置
+```
+~/Library/Application Support/CrossFreeler/
+├── config.json          # 全域設定 + bottle 清單 metadata
+└── bottles/
+    └── <bottle-id>/     # WINEPREFIX 本體（drive_c/, *.reg, ...）
+```
+
+`bottle-id` 用 UUID v4。使用者看到的是 bottle 的顯示名稱。
+
+### config.json schema（TypeScript 型別，Rust 端用 serde 對應）
+```ts
+interface AppConfig {
+  version: 1;
+  winePath: string | null;        // 使用者手動覆寫的 wine 路徑；null = 自動偵測
+  bottles: Bottle[];
+}
+
+interface Bottle {
+  id: string;                     // UUID
+  name: string;                   // 顯示名稱，唯一
+  createdAt: string;              // ISO 8601
+  windowsVersion: 'win11' | 'win10' | 'win7';  // 建立時經 winecfg registry 設定
+  envVars: Record<string, string>; // 執行時附加的環境變數（如 WINEDEBUG=-all）
+  shortcuts: Shortcut[];
+}
+
+interface Shortcut {
+  id: string;                     // UUID
+  name: string;                   // 顯示名稱
+  exePath: string;                // Windows 路徑（C:\...）或 mac 絕對路徑皆可
+  args: string;                   // 額外啟動參數
+}
+```
+
+寫入 config.json 必須 atomic（先寫 temp file 再 rename）。
+
+---
+
+## 5. 功能規格
+
+### F1 — 環境偵測與導引頁
+- App 啟動時執行第 3 節的偵測，結果存於前端 store。
+- Wine 缺少時：主畫面顯示安裝導引（含可複製的 brew 指令），並提供「重新偵測」按鈕。
+- 設定頁允許手動指定 wine binary 路徑（存入 `config.winePath`）。
+
+### F2 — Bottle 管理
+- **建立**：輸入名稱 + 選 Windows 版本 → 後端執行 `WINEPREFIX=<dir> WINEARCH=win64 wine wineboot --init`，完成後用 `wine winecfg -v <version>` 設定 Windows 版本。建立過程顯示進度（初始化 prefix 需要數十秒，UI 要有 loading 狀態並串流 log）。
+- **列表**：側欄列出所有 bottles，顯示名稱與 Windows 版本。
+- **刪除**：二次確認後刪除 prefix 目錄與 config 內 metadata。刪除前先 `wineserver -k` 該 prefix。
+- **改名**：只改 metadata，不動目錄。
+- **開啟 C 槽**：在 Finder 開啟 `<prefix>/drive_c`（`open` 指令）。
+- **執行 winecfg**：按鈕直接對該 bottle 開 `wine winecfg`。
+
+### F3 — 執行程式
+- Bottle 詳細頁提供「執行程式…」按鈕 → Tauri file dialog 選 `.exe`/`.msi`/`.bat`。
+- 也支援把 `.exe` 拖進視窗（Tauri drag-drop event），詢問要在哪個 bottle 執行。
+- 執行指令：
+  ```
+  WINEPREFIX=<prefix> <envVars...> wine <exePath> <args>
+  ```
+  `.msi` 用 `wine msiexec /i <path>`。
+- 程序以 async 方式 spawn，stdout/stderr 逐行透過 Tauri event（`bottle-log://<bottleId>`）推到前端。
+- 執行後詢問使用者是否要把該程式存成捷徑（F4）。
+
+### F4 — 程式捷徑
+- 每個 bottle 詳細頁以卡片 grid 顯示 shortcuts，點卡片即啟動。
+- 卡片右鍵／選單：改名、編輯參數、刪除。
+- 新增捷徑：手動挑檔案，或由 F3 執行後保存。
+
+### F5 — Bottle 設定
+- 每 bottle 可編輯：
+  - Windows 版本（重新執行 `winecfg -v`）。
+  - 自訂環境變數 key-value 清單（UI 提供常用預設快捷：`WINEDEBUG=-all`、`WINEESYNC=1`、`LC_ALL=zh_TW.UTF-8`）。
+- 「強制關閉 bottle」按鈕：`WINEPREFIX=<prefix> wineserver -k`。
+
+### F6 — Winetricks 元件
+- Bottle 詳細頁的「元件」tab，提供精選 verb 清單（checkbox + 安裝按鈕）：
+  `corefonts, cjkfonts, vcrun2015, vcrun2019, vcrun2022, dotnet48, d3dcompiler_47, gdiplus, msxml6`
+- 執行 `WINEPREFIX=<prefix> winetricks -q <verbs...>`，log 同樣串流到前端。
+- 也提供自由輸入欄位執行任意 verb。
+
+### F7 — Log 面板
+- 視窗底部可收合的 log 面板，依 bottle 分 tab。
+- 顯示 F2/F3/F6 產生的即時輸出，上限保留最近 2000 行（ring buffer）。
+- 提供「清除」與「複製全部」。
+
+---
+
+## 6. 後端（Rust）介面
+
+所有 Tauri command 回傳 `Result<T, String>`，錯誤訊息須是人類可讀的中文。
+
+```rust
+// 環境
+detect_environment() -> EnvStatus        // { rosetta: bool, wine: Option<{path, version}>, winetricks: bool }
+set_wine_path(path: Option<String>)
+
+// config
+load_config() -> AppConfig
+// bottle CRUD（內部負責讀寫 config.json）
+create_bottle(name: String, windows_version: String) -> Bottle   // 長任務，log 走 event
+rename_bottle(id: String, name: String)
+delete_bottle(id: String)
+open_drive_c(id: String)
+run_winecfg(id: String)
+kill_bottle(id: String)                  // wineserver -k
+update_bottle_env(id: String, env: HashMap<String, String>)
+set_windows_version(id: String, version: String)
+
+// 執行
+run_program(bottle_id: String, exe_path: String, args: String) -> u32  // 回傳 pid，log 走 event
+run_winetricks(bottle_id: String, verbs: Vec<String>)
+
+// 捷徑
+add_shortcut(bottle_id: String, shortcut: ShortcutInput) -> Shortcut
+update_shortcut(bottle_id: String, shortcut: Shortcut)
+remove_shortcut(bottle_id: String, shortcut_id: String)
+```
+
+實作注意：
+- spawn 子程序一律用 `tokio::process::Command`（Tauri async runtime），**不可**阻塞主執行緒。
+- 環境變數只傳白名單 + bottle 自訂值，並一定設 `WINEPREFIX`；不要繼承會干擾 Wine 的變數。
+- log event payload：`{ bottleId: string, line: string, stream: 'stdout' | 'stderr' }`。
+- 路徑一律處理含空白與非 ASCII（中文檔名）情況——用參數陣列 spawn，不組 shell 字串。
+
+---
+
+## 7. 前端結構
+
+```
+src/
+├── App.tsx                 # Layout：Sidebar + Main + LogPanel
+├── stores/
+│   ├── envStore.ts         # 環境偵測狀態
+│   ├── bottleStore.ts      # bottles + 選中的 bottle
+│   └── logStore.ts         # per-bottle ring buffer
+├── components/
+│   ├── Sidebar.tsx         # bottle 列表 + 新增按鈕 + 設定入口
+│   ├── BottleDetail.tsx    # tabs: 程式 / 元件 / 設定
+│   ├── ShortcutGrid.tsx
+│   ├── WinetricksPanel.tsx
+│   ├── BottleSettings.tsx
+│   ├── LogPanel.tsx
+│   ├── CreateBottleModal.tsx
+│   └── SetupGuide.tsx      # F1 導引頁
+└── lib/
+    ├── ipc.ts              # 封裝所有 invoke() 呼叫，型別安全
+    └── types.ts
+```
+
+UI 要求：
+- 深色主題為主（跟隨系統亦可），介面語言 **繁體中文**。
+- Sidebar 固定寬 240px；整體風格參考 CrossOver / Bottles（Linux）的簡潔卡片式布局。
+- 所有長任務（建 bottle、winetricks）都要有進度回饋，不可讓 UI 看起來卡死。
+
+---
+
+## 8. Milestones（依序實作，每個完成後 commit）
+
+1. **M1 — Scaffold**：Tauri 2 + React + TS + Vite + Tailwind + Zustand 腳手架可 `npm run tauri dev` 跑起來。
+2. **M2 — 環境偵測**：F1 完成（偵測 + 導引頁 + 手動指定路徑）。
+3. **M3 — Bottle CRUD**：F2 完成，含建立時的 log 串流與 loading 狀態。
+4. **M4 — 執行程式 + Log**：F3 + F7 完成。
+5. **M5 — 捷徑 + 設定**：F4 + F5 完成。
+6. **M6 — Winetricks**：F6 完成。
+7. **M7 — 打包**：`npm run tauri build` 產出可用的 `.app`／`.dmg`；README 補上安裝與使用說明。
+
+---
+
+## 9. 驗收標準
+
+- [ ] 全新機器（已裝 wine-stable）啟動 app，能建立名為「測試」的 win10 bottle。
+- [ ] 能執行一個 x64 安裝程式（例：Notepad++ installer）並完成安裝。
+- [ ] 安裝後能把 `notepad++.exe` 存成捷徑並由卡片啟動。
+- [ ] 未裝 Wine 的機器啟動 app 看到導引頁而非錯誤。
+- [ ] 刪除 bottle 後目錄與 config 皆清乾淨，執行中的 wineserver 有被 kill。
+- [ ] 含中文與空白的 exe 路徑可正常執行。
+- [ ] `npm run tauri build` 成功產出 .app。
+
+---
+
+## 10. 開發指令
+
+```bash
+npm install
+npm run tauri dev     # 開發
+npm run tauri build   # 打包 .app / .dmg
+```
+
+前置需求：Node 22+、Rust stable（`brew install rust`）、`brew install --cask wine-stable`、（選用）`brew install winetricks`。
