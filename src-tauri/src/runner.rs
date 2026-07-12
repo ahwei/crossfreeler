@@ -59,6 +59,24 @@ pub fn build_command(
     cmd
 }
 
+/// 過濾掉會洗版又無資訊量的行（MoltenVK/Vulkan 能力清單、SEH unwind trace）。
+fn is_noise(line: &str) -> bool {
+    let l = line.trim_start();
+    l.starts_with("[mvk-info]")
+        || l.starts_with("VK_")
+        || l.starts_with("trace:seh:")
+        || l.contains("GPU Family")
+        || l.contains("Metal Shading Language")
+        || l.contains("Read-Write Texture")
+        || l.contains("the following")
+        || l.contains("supports the")
+        || (l.starts_with("model:") || l.starts_with("type:"))
+        || l.contains("vendorID")
+        || l.contains("deviceID")
+        || l.contains("pipelineCacheUUID")
+        || l.contains("GPU memory")
+}
+
 fn pipe_logs(app: &AppHandle, bottle_id: &str, child: &mut tokio::process::Child) {
     if let Some(out) = child.stdout.take() {
         let app = app.clone();
@@ -66,7 +84,9 @@ fn pipe_logs(app: &AppHandle, bottle_id: &str, child: &mut tokio::process::Child
         tokio::spawn(async move {
             let mut lines = BufReader::new(out).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                emit_log(&app, &id, &line, "stdout");
+                if !is_noise(&line) {
+                    emit_log(&app, &id, &line, "stdout");
+                }
             }
         });
     }
@@ -76,7 +96,9 @@ fn pipe_logs(app: &AppHandle, bottle_id: &str, child: &mut tokio::process::Child
         tokio::spawn(async move {
             let mut lines = BufReader::new(err).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                emit_log(&app, &id, &line, "stderr");
+                if !is_noise(&line) {
+                    emit_log(&app, &id, &line, "stderr");
+                }
             }
         });
     }
