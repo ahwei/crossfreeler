@@ -1,46 +1,111 @@
 # CrossFreeler 🍷
 
-macOS（Apple Silicon）上類 CrossOver 的 Wine 圖形化前端 — 用 Tauri 2 + React + Vite 打造，**以遊戲為主要使用情境**。
+A CrossOver-like graphical Wine frontend for macOS (Apple Silicon), built with Tauri 2 + React +
+Vite — **built primarily for games**.
 
-管理多個 Wine bottles、一鍵執行 Windows x64 軟體與遊戲，不需安裝完整 Windows。
+Manage multiple Wine bottles and launch Windows x64 apps and games in one click, without installing
+Windows.
 
-## 功能（v1）
+繁體中文說明：[README.zh-TW.md](./README.zh-TW.md)
 
-- 🍾 Bottle（Wine prefix）管理：建立／改名／刪除／開啟 C 槽／winecfg
-- 🎮 遊戲範本：Wine Staging（esync）+ 遊戲用環境變數預設
-- ▶️ 執行任意 `.exe` / `.msi` / `.bat`，程式捷徑卡片一鍵啟動
-- 🔧 winetricks 元件安裝（vcrun、dotnet、字型、DirectX 元件…）
-- 📜 即時 log 串流面板
-- ⚙️ Per-bottle Windows 版本與環境變數設定
+## Features (v1)
 
-規格與 roadmap（DXVK、Wine runtime 內建下載器）見 [SPEC.md](./SPEC.md)。
+- 🍾 Bottle (Wine prefix) management: create / rename / delete / open C: drive / winecfg
+- 🎮 Game template: Wine Staging (esync) + game-oriented environment variable defaults
+- ▶️ Run any `.exe` / `.msi` / `.bat`; one-click launch from shortcut cards
+- 🔧 winetricks component installation (vcrun, dotnet, fonts, DirectX components…)
+- 📜 Live log streaming panel
+- ⚙️ Per-bottle Windows version and environment variables
 
-## 環境需求
+See [SPEC.md](./SPEC.md) for the spec and roadmap (DXVK, built-in Wine runtime downloader).
 
-- Apple Silicon Mac + Rosetta 2（`softwareupdate --install-rosetta --agree-to-license`）
-- Wine：建議直接下載 [Gcenx macOS Wine builds](https://github.com/Gcenx/macOS_Wine_builds/releases)
-  解壓後將 `Wine Stable.app/Contents/Resources/wine` 放到
-  `~/Library/Application Support/CrossFreeler/runtime/`（並建立 `current` symlink），app 會自動偵測。
-  > 注意：Homebrew 的 `wine-stable` cask 已被標記 deprecated（2026-09 停用），不再建議。
-- （選用）`brew install winetricks`
+## Requirements
 
-## 開發
+- Apple Silicon Mac
+- Rosetta 2
+- At least one Wine engine (see [Setup](#setup))
+- Optional: `brew install winetricks`
+
+## Setup
+
+### 1. Install Rosetta 2
+
+```bash
+softwareupdate --install-rosetta --agree-to-license
+```
+
+### 2. Install a Wine engine
+
+CrossFreeler does not bundle Wine — it detects engines already on your machine, so install at least
+one. Everything lives under the app's data directory:
+
+```
+~/Library/Application Support/CrossFreeler/
+```
+
+**Stable** — the baseline, fine for most apps.
+
+Download a build from [Gcenx macOS Wine builds](https://github.com/Gcenx/macOS_Wine_builds/releases),
+then place it so that `runtime/current/bin/wine` exists:
+
+```bash
+CF=~/Library/Application\ Support/CrossFreeler/runtime
+mkdir -p "$CF"
+# after unpacking Wine Stable.app:
+cp -R "Wine Stable.app/Contents/Resources/wine" "$CF/wine-stable"
+ln -sfn "$CF/wine-stable" "$CF/current"
+```
+
+Homebrew's `wine-stable` cask is deprecated (removal scheduled for 2026-09) and is no longer
+recommended, though `/opt/homebrew/bin/wine` is still detected if you have it.
+
+**Staging** — a newer Wine, needed by some patchers and launchers.
+
+Unpack it into a directory named `wine-staging-*`; the newest one wins:
+
+```bash
+cp -R <unpacked-staging-wine> "$CF/wine-staging-9.x"
+```
+
+**CrossOver engine** — required for protected games.
+
+Games shipping Themida / WinLicense / GameGuard (e.g. official Ragnarok Online) only run on a
+CrossOver-derived engine. Any one of these is detected automatically:
+
+- CrossOver.app in `/Applications` or `~/Applications`
+- [Whisky](https://getwhisky.app)'s bundled WhiskyWine
+- a manual copy at `runtime/crossover/bin/wine`
+
+### 3. Build and run
 
 ```bash
 npm install
-npm run tauri dev     # 開發模式
-npm run tauri build   # 打包 .app / .dmg
+npm run tauri dev     # development
+npm run tauri build   # package .app / .dmg
 ```
 
-需要 Node 22+ 與 Rust stable（`brew install rust`）。
+Requires Node 22+ and Rust stable (`brew install rust`).
 
-## 已知限制
+### 4. First launch
 
-- 使用 kernel anti-cheat（EAC / BattlEye）的線上遊戲無法執行（所有 Wine 方案皆然）。
-- 參數欄位以空白切割，不支援含引號的參數。
+The app probes your environment on startup and the setup guide reports what it found. From there:
 
-## 授權聲明
+1. Create a bottle — pick a Windows version and an engine (choose the CrossOver engine for
+   protected games).
+2. Or import an existing Whisky / CrossOver bottle. The prefix is *shared*, not copied; removing it
+   from CrossFreeler only unlinks it.
+3. Run an installer, or add a shortcut to an `.exe` and double-click the card to launch.
 
-本專案透過外部程序呼叫 [Wine](https://www.winehq.org)。Wine 為 LGPL 授權的自由軟體，
-其原始碼可於 [winehq.org](https://www.winehq.org) 取得；macOS 建置版來自
-[Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds)。
+Shortcuts can override the engine individually, so one bottle can run its patcher on staging while
+the game itself runs on the CrossOver engine.
+
+## Known limitations
+
+- Online games using kernel anti-cheat (EAC / BattlEye) will not run — true of every Wine solution.
+- Argument fields are split on whitespace; quoted arguments are not supported.
+
+## License notice
+
+This project invokes [Wine](https://www.winehq.org) as an external program. Wine is free software
+licensed under the LGPL; its source is available at [winehq.org](https://www.winehq.org). macOS
+builds come from [Gcenx/macOS_Wine_builds](https://github.com/Gcenx/macOS_Wine_builds).
